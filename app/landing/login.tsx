@@ -12,23 +12,19 @@ import {
   TouchableOpacity,
   View
 } from 'react-native';
-import { useAuth } from '../context/AuthContext';
+import { useAuth } from '../../context/AuthContext';
 
-export default function SignupScreen() {
-  const [activeTab, setActiveTab] = useState('signup');
-  const [firstName, setFirstName] = useState('');
-  const [lastName, setLastName] = useState('');
-  const [username, setUsername] = useState('');
+export default function LoginScreen() {
+  const [activeTab, setActiveTab] = useState('login');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
+  const [rememberMe, setRememberMe] = useState(false);
   const [loading, setLoading] = useState(false);
-  const { signup } = useAuth();
+  const { login } = useAuth();
 
-  // Gradient Text Component with platform-specific implementation
   const GradientText = ({ children }: { children: React.ReactNode }) => {
     if (Platform.OS === 'web') {
-      // Web-specific gradient using CSS - bright blue-cyan gradient to match logo
       return (
         <Text 
           style={{
@@ -45,13 +41,12 @@ export default function SignupScreen() {
       );
     }
 
-    // Native platforms - use a bright blue color that represents the gradient
     return (
       <Text 
         style={{
           fontSize: 20,
           fontWeight: 'bold',
-          color: '#1E90FF', // Bright dodger blue - primary color from gradient
+          color: '#1E90FF',
         }}
       >
         {children}
@@ -59,33 +54,22 @@ export default function SignupScreen() {
     );
   };
 
-  const handleSignup = async () => {
-    if (!firstName.trim() || !lastName.trim() || !username.trim() || !email.trim() || !password.trim()) {
+  const handleLogin = async () => {
+    if (!email.trim() || !password.trim()) {
       Alert.alert('Error', 'Please fill in all fields');
-      return;
-    }
-
-    if (password.length < 6) {
-      Alert.alert('Error', 'Password must be at least 6 characters long');
       return;
     }
 
     setLoading(true);
     try {
-      const result = await signup({ 
-        firstName: firstName.trim(),
-        lastName: lastName.trim(),
-        username: username.trim(),
-        email: email.trim(), 
-        password 
-      });
+      const result = await login({ email: email.trim(), password });
       if (result.success) {
         router.replace('/');
       } else {
         const errorMsg = typeof result.error === 'object' 
           ? result.error.message 
-          : result.error || 'Signup failed';
-        Alert.alert('Signup Failed', errorMsg);
+          : result.error || 'Login failed';
+        Alert.alert('Login Failed', errorMsg);
       }
     } catch (error) {
       Alert.alert('Error', 'Network error. Please try again.');
@@ -145,7 +129,7 @@ export default function SignupScreen() {
             <View className="items-start mb-6">
               <View className="flex-row items-center mb-4">
                 <Image 
-                  source={require('../assets/logo.svg')} 
+                  source={require('../../assets/logo.svg')} 
                   style={{ 
                     width: 32, 
                     height: 32, 
@@ -154,9 +138,9 @@ export default function SignupScreen() {
                 />
                 <GradientText>FillTrip</GradientText>
               </View>
-              <Text className="text-white text-2xl font-bold mb-2">Create your account</Text>
+              <Text className="text-white text-2xl font-bold mb-2">Get Started now</Text>
               <Text className="text-gray-400 text-sm leading-5 max-w-sm">
-                Already have an account? <Text onPress={() => router.push('/login')} className="text-teal-400">Log in</Text>
+                Create an account or log in to explore about our app
               </Text>
             </View>
           </View>
@@ -174,10 +158,7 @@ export default function SignupScreen() {
                   className={`flex-1 py-2.5 rounded-xl items-center ${
                     activeTab === 'login' ? 'bg-teal-500 shadow-lg' : ''
                   }`}
-                  onPress={() => {
-                    setActiveTab('login');
-                    router.push('/login');
-                  }}
+                  onPress={() => setActiveTab('login')}
                 >
                   <Text className={`font-semibold text-sm ${
                     activeTab === 'login' ? 'text-white' : 'text-gray-500'
@@ -189,7 +170,10 @@ export default function SignupScreen() {
                   className={`flex-1 py-2.5 rounded-xl items-center ${
                     activeTab === 'signup' ? 'bg-teal-500 shadow-lg' : ''
                   }`}
-                  onPress={() => setActiveTab('signup')}
+                  onPress={() => {
+                    setActiveTab('signup');
+                    router.push('/landing/signup');
+                  }}
                 >
                   <Text className={`font-semibold text-sm ${
                     activeTab === 'signup' ? 'text-white' : 'text-gray-500'
@@ -200,51 +184,11 @@ export default function SignupScreen() {
               </View>
             </View>
 
-            {/* Signup Form */}
+            {/* Login Form */}
             <View className="px-6 space-y-3">
-              {/* First Name and Last Name */}
-              <View className="flex-row gap-3">
-                <View className="flex-1">
-                  <Text className="text-gray-700 mb-2 font-medium text-sm">First Name</Text>
-                  <TextInput
-                    className="bg-gray-50 text-gray-900 px-4 py-3 rounded-xl border border-gray-200 text-sm"
-                    placeholder="John"
-                    placeholderTextColor="#9CA3AF"
-                    value={firstName}
-                    onChangeText={setFirstName}
-                    autoCapitalize="words"
-                  />
-                </View>
-                <View className="flex-1">
-                  <Text className="text-gray-700 mb-2 font-medium text-sm">Last Name</Text>
-                  <TextInput
-                    className="bg-gray-50 text-gray-900 px-4 py-3 rounded-xl border border-gray-200 text-sm"
-                    placeholder="Doe"
-                    placeholderTextColor="#9CA3AF"
-                    value={lastName}
-                    onChangeText={setLastName}
-                    autoCapitalize="words"
-                  />
-                </View>
-              </View>
-
-              {/* Username */}
-              <View>
-                <Text className="text-gray-700 mb-2 font-medium text-sm">Username</Text>
-                <TextInput
-                  className="bg-gray-50 text-gray-900 px-4 py-3 rounded-xl border border-gray-200 text-sm"
-                  placeholder="johndoe"
-                  placeholderTextColor="#9CA3AF"
-                  value={username}
-                  onChangeText={setUsername}
-                  autoCapitalize="none"
-                  autoCorrect={false}
-                />
-              </View>
-
               {/* Email */}
               <View>
-                <Text className="text-gray-700 mb-2 font-medium text-sm">Email address</Text>
+                <Text className="text-gray-700 mb-1.5 font-medium text-sm">Email</Text>
                 <TextInput
                   className="bg-gray-50 text-gray-900 px-4 py-3 rounded-xl border border-gray-200 text-sm"
                   placeholder="john.doe@gmail.com"
@@ -259,7 +203,7 @@ export default function SignupScreen() {
 
               {/* Password */}
               <View>
-                <Text className="text-gray-700 mb-2 font-medium text-sm">Password</Text>
+                <Text className="text-gray-700 mb-1.5 font-medium text-sm">Password</Text>
                 <View className="relative">
                   <TextInput
                     className="bg-gray-50 text-gray-900 px-4 py-3 rounded-xl border border-gray-200 text-sm pr-12"
@@ -274,7 +218,7 @@ export default function SignupScreen() {
                     onPress={() => setShowPassword(!showPassword)}
                   >
                     <Image 
-                      source={showPassword ? require('../assets/hide.png') : require('../assets/unhide.png')}
+                      source={showPassword ? require('../../assets/hide.png') : require('../../assets/unhide.png')}
                       style={{ width: 20, height: 20 }}
                       resizeMode="contain"
                     />
@@ -282,37 +226,52 @@ export default function SignupScreen() {
                 </View>
               </View>
 
-              {/* Spacer */}
-              <View style={{ height: 4 }} />
+              {/* Remember Me and Forgot Password */}
+              <View className="flex-row justify-between items-center py-1">
+                <TouchableOpacity
+                  className="flex-row items-center"
+                  onPress={() => setRememberMe(!rememberMe)}
+                >
+                  <View className={`w-4 h-4 rounded border-2 mr-2 items-center justify-center ${
+                    rememberMe ? 'bg-teal-500 border-teal-500' : 'border-gray-300'
+                  }`}>
+                    {rememberMe && <Text className="text-white text-xs font-bold">✓</Text>}
+                  </View>
+                  <Text className="text-gray-600 text-sm">Remember me</Text>
+                </TouchableOpacity>
+                <TouchableOpacity>
+                  <Text className="text-teal-600 font-medium text-sm">Forgot Password ?</Text>
+                </TouchableOpacity>
+              </View>
 
-              {/* Sign Up Button */}
+              {/* Log In Button */}
               <TouchableOpacity
-                className={`py-3.5 rounded-xl items-center ${
+                className={`py-3.5 rounded-xl items-center mt-4 ${
                   loading ? 'bg-teal-400' : 'bg-teal-500'
                 }`}
-                onPress={handleSignup}
+                onPress={handleLogin}
                 disabled={loading}
               >
                 <Text className="text-white text-base font-semibold">
-                  {loading ? 'Creating Account...' : 'Sign up'}
+                  {loading ? 'Logging in...' : 'Log In'}
                 </Text>
               </TouchableOpacity>
 
               {/* Divider */}
-              <View className="flex-row items-center my-5">
+              <View className="flex-row items-center my-4">
                 <View className="flex-1 h-px bg-gray-200" />
                 <Text className="mx-4 text-gray-400 text-sm">Or</Text>
                 <View className="flex-1 h-px bg-gray-200" />
               </View>
 
               {/* Social Login Buttons */}
-              <View className="flex-row gap-3 mb-8">
+              <View className="flex-row gap-3 mb-6">
                 <TouchableOpacity
                   className="flex-1 flex-row items-center justify-center py-3 border border-gray-200 rounded-xl bg-white"
                   onPress={() => handleSocialLogin('Google')}
                 >
                   <Image 
-                    source={require('../assets/google.png')} 
+                    source={require('../../assets/google.png')} 
                     style={{ 
                       width: 18, 
                       height: 18, 
@@ -327,7 +286,7 @@ export default function SignupScreen() {
                   onPress={() => handleSocialLogin('Facebook')}
                 >
                   <Image 
-                    source={require('../assets/facebook.png')} 
+                    source={require('../../assets/facebook.png')} 
                     style={{ 
                       width: 18, 
                       height: 18, 
@@ -344,4 +303,3 @@ export default function SignupScreen() {
     </SafeAreaView>
   );
 }
-  
