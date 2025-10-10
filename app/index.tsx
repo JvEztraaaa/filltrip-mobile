@@ -1,6 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { router } from 'expo-router';
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Text, View } from "react-native";
 import { useAuth } from '../context/AuthContext';
 
@@ -12,19 +12,17 @@ export default function IndexScreen() {
     checkFirstLaunch();
   }, []);
 
+  const didRoute = useRef(false);
   useEffect(() => {
+    if (didRoute.current) return;
     if (!loading && isFirstLaunch !== null) {
-      // For testing purposes, always show onboarding
-      router.replace('/landing/onboarding');
-      
-      // Original logic (commented out for testing):
-      // if (isFirstLaunch) {
-      //   router.replace('/landing/splash');
-      // } else if (currentUser) {
-      //   // User is authenticated, stay on this page for now
-      // } else {
-      //   router.replace('/landing/login');
-      // }
+      if (isFirstLaunch) {
+        didRoute.current = true;
+        router.replace('/landing/splash');
+      } else if (!currentUser) {
+        didRoute.current = true;
+        router.replace('/landing/login');
+      }
     }
   }, [currentUser, loading, isFirstLaunch]);
 

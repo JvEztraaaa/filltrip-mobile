@@ -102,26 +102,26 @@ export default function LoginScreen() {
               backgroundSize: Platform.OS === 'web' ? '20px 20px' : undefined,
             }}
           >
-            {/* Single Radial Shine Effect - Top Right */}
+            {/* Main Radial Shine Effect - Top Right */}
             {Platform.OS === 'web' ? (
               <View 
                 className="absolute top-0 right-0"
                 style={{
                   width: 500,
                   height: 500,
-                  background: 'radial-gradient(ellipse at top right, rgba(255, 255, 255, 0.2) 0%, rgba(255, 255, 255, 0.12) 20%, rgba(255, 255, 255, 0.08) 35%, rgba(255, 255, 255, 0.05) 50%, rgba(255, 255, 255, 0.03) 65%, rgba(255, 255, 255, 0.015) 75%, rgba(255, 255, 255, 0.008) 85%, rgba(255, 255, 255, 0.003) 92%, transparent 100%)',
-                  transform: [{ translateX: 200 }, { translateY: -200 }],
+                  background: 'radial-gradient(ellipse at top right, rgba(255, 255, 255, 0.08) 0%, rgba(255, 255, 255, 0.05) 25%, rgba(255, 255, 255, 0.03) 45%, rgba(255, 255, 255, 0.015) 65%, rgba(255, 255, 255, 0.008) 80%, transparent 100%)',
+                  transform: [{ translateX: 180 }, { translateY: -180 }],
                 } as any}
               />
             ) : (
               <View 
                 className="absolute top-0 right-0"
                 style={{
-                  width: 300,
-                  height: 300,
-                  backgroundColor: 'rgba(255, 255, 255, 0.08)',
-                  borderRadius: 150,
-                  transform: [{ translateX: 100 }, { translateY: -100 }],
+                  width: 350,
+                  height: 350,
+                  backgroundColor: 'rgba(255, 255, 255, 0.04)',
+                  borderRadius: 175,
+                  transform: [{ translateX: 120 }, { translateY: -120 }],
                 }}
               />
             )}
@@ -140,7 +140,7 @@ export default function LoginScreen() {
               </View>
               <Text className="text-white text-2xl font-bold mb-2">Get Started now</Text>
               <Text className="text-gray-400 text-sm leading-5 max-w-sm">
-                Create an account or log in to explore about our app
+                Create an account or log in to explore Filltrip
               </Text>
             </View>
           </View>

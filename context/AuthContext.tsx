@@ -1,7 +1,6 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import React, { createContext, ReactNode, useContext, useEffect, useState } from 'react';
-
-const API_BASE = 'http://localhost/filltrip-db';
+import { Platform } from 'react-native';
+import { API_BASE } from '../src/config/api';
 
 interface User {
   id: string;
@@ -65,20 +64,37 @@ function toForm(obj: Record<string, any>) {
 }
 
 async function fetchJSON(url: string, init: RequestInit = {}): Promise<any> {
-  const token = await AsyncStorage.getItem('authToken');
-  
   const headers: Record<string, string> = {
-    ...init.headers as Record<string, string>,
+    Accept: 'application/json',
+    ...(init.headers as Record<string, string>),
   };
-  
-  if (token) {
-    headers['Authorization'] = `Bearer ${token}`;
-  }
 
-  const res = await fetch(url, {
-    ...init,
-    headers,
-  });
+  // Always include credentials so PHP session cookies work across requests (web + native)
+  const controller = typeof AbortController !== 'undefined' ? new AbortController() : (null as any);
+  const timeoutId = setTimeout(() => {
+    try { controller?.abort(); } catch {}
+  }, 12000);
+
+  let res: Response;
+  try {
+    res = await fetch(url, {
+      credentials: 'include' as RequestCredentials,
+      ...init,
+      headers,
+      // mode 'cors' is implicitly set on web when cross-origin; harmless elsewhere
+      // @ts-ignore - RN fetch ignores mode
+      mode: (Platform.OS === 'web' ? 'cors' : (init as any).mode),
+      signal: controller?.signal,
+    });
+  } catch (e: any) {
+    clearTimeout(timeoutId);
+    console.error('fetchJSON network error:', { url, message: e?.message });
+    const err = new Error(e?.message || 'Network request failed');
+    (err as any).status = 0;
+    throw err;
+  } finally {
+    clearTimeout(timeoutId);
+  }
   
   let data: any = {};
   try { 
@@ -86,6 +102,7 @@ async function fetchJSON(url: string, init: RequestInit = {}): Promise<any> {
   } catch {}
   
   if (!res.ok || data?.success === false) {
+    console.error('fetchJSON error:', { url, status: res.status, data });
     const err = new Error(data?.error || `Request failed (${res.status})`) as any;
     err.status = res.status;
     if (data && typeof data === 'object') {
@@ -114,7 +131,12 @@ function makeAbsoluteUrl(relativeOrAbsolute: string): string {
 
 function normalizeUser(user: any): User {
   if (!user) return user;
-  const u = { ...user };
+  const u: any = { ...user };
+  // Fix inconsistent casing from backend (signup.php uses LastName)
+  if (u.LastName && !u.lastName) {
+    u.lastName = u.LastName;
+    delete u.LastName;
+  }
   if (!u.fullName && (u.firstName || u.lastName)) {
     u.fullName = [u.firstName, u.lastName].filter(Boolean).join(' ').trim();
   }
@@ -130,17 +152,12 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
   useEffect(() => {
     const initAuth = async () => {
       try {
-        const token = await AsyncStorage.getItem('authToken');
-        if (token) {
-          const { user: backendUser } = await fetchJSON(`${API_BASE}/me.php`, { 
-            method: 'GET' 
-          });
-          const normalizedUser = normalizeUser(backendUser);
-          setCurrentUser(normalizedUser);
-        }
+        // Query backend session regardless of token; PHP uses cookie-based auth
+        const { user: backendUser } = await fetchJSON(`${API_BASE}/me.php`, { method: 'GET' });
+        const normalizedUser = normalizeUser(backendUser);
+        setCurrentUser(normalizedUser);
       } catch (err) {
         console.error('Failed to restore session', err);
-        await AsyncStorage.removeItem('authToken');
       } finally {
         setLoading(false);
       }
@@ -164,20 +181,19 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
         autoLogin: 1 
       });
       
-      const { user: backendUser, token } = await fetchJSON(`${API_BASE}/signup.php`, { 
+      const { user: backendUser } = await fetchJSON(`${API_BASE}/signup.php`, { 
         method: 'POST', 
         body 
       });
-      
-      if (token) {
-        await AsyncStorage.setItem('authToken', token);
-      }
-      
+
       const normalizedUser = normalizeUser(backendUser);
       setCurrentUser(normalizedUser);
       return { success: true, user: normalizedUser };
-    } catch (error: any) {
-      return { success: false, error: error.message || 'Signup failed' };
+    } catch (err: any) {
+      if (err?.status === 409 || /already registered/i.test(err?.message || '')) {
+        return { success: false, error: { message: 'email or username already registered', status: 409 } };
+      }
+      return { success: false, error: err.message || 'Signup failed' };
     }
   };
 
@@ -185,15 +201,11 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
   const login = async ({ email, password }: LoginCredentials): Promise<AuthResult> => {
     const body = toForm({ email, password });
     try {
-      const { user, token } = await fetchJSON(`${API_BASE}/login.php`, { 
+      const { user } = await fetchJSON(`${API_BASE}/login.php`, { 
         method: 'POST', 
         body 
       });
-      
-      if (token) {
-        await AsyncStorage.setItem('authToken', token);
-      }
-      
+
       const normalized = normalizeUser(user);
       setCurrentUser(normalized);
       return { success: true, user: normalized };
@@ -208,14 +220,14 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
       if (raw.includes('invalid credentials')) {
         return { success: false, error: { message: 'invalid password', status: 401 } };
       }
-      return { success: false, error: { message: 'login failed', status: err.status || 400 } };
+      // Bubble the actual backend error for visibility (e.g., unexpected 409)
+      return { success: false, error: { message: err?.message || 'login failed', status: err?.status || 400 } };
     }
   };
 
   const logout = async (): Promise<void> => {
     try {
       await fetchJSON(`${API_BASE}/logout.php`, { method: 'POST' });
-      await AsyncStorage.removeItem('authToken');
     } finally {
       setCurrentUser(null);
     }

@@ -1,3 +1,20 @@
+# FillTrip Mobile - Auth wiring
+
+This app connects to the FillTrip PHP backend (filltrip/filltrip-db) using cookie-based PHP sessions.
+
+Configuration:
+- Default API base is chosen per platform:
+  - Android emulator: http://10.0.2.2/filltrip-db
+  - Web/iOS/others: http://localhost/filltrip-db
+- To override, set EXPO_PUBLIC_API_BASE in your environment or add `extra.API_BASE` in app.json.
+
+Notes:
+- We always send `credentials: 'include'` so session cookies are preserved.
+- Ensure your XAMPP server allows CORS for localhost and includes `Access-Control-Allow-Credentials: true`.
+
+Run:
+- Start XAMPP (Apache + MySQL) and import `filltrip.sql`.
+- From this folder, run Expo (web or Android).
 # Welcome to your Expo app 👋
 
 This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
