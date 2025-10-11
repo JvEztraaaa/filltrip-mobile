@@ -1,6 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { router } from 'expo-router';
-import React, { useEffect, useRef, useState } from 'react';
+import { Redirect } from 'expo-router';
+import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, Text, View } from "react-native";
 import { useAuth } from '../context/AuthContext';
 
@@ -12,19 +12,13 @@ export default function IndexScreen() {
     checkFirstLaunch();
   }, []);
 
-  const didRoute = useRef(false);
-  useEffect(() => {
-    if (didRoute.current) return;
-    if (!loading && isFirstLaunch !== null) {
-      if (isFirstLaunch) {
-        didRoute.current = true;
-        router.replace('/landing/splash');
-      } else if (!currentUser) {
-        didRoute.current = true;
-        router.replace('/landing/login');
-      }
-    }
-  }, [currentUser, loading, isFirstLaunch]);
+  // Use declarative redirects to avoid navigation context timing issues
+  if (!loading && isFirstLaunch === true) {
+    return <Redirect href="/landing/splash" />;
+  }
+  if (!loading && isFirstLaunch === false && !currentUser) {
+    return <Redirect href="/landing/login" />;
+  }
 
   const checkFirstLaunch = async () => {
     try {

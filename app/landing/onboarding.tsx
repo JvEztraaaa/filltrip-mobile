@@ -1,23 +1,23 @@
-import { router } from 'expo-router';
+import { useRouter } from 'expo-router';
 import React, { useRef, useState } from 'react';
 import {
   Animated,
   Dimensions,
   Image,
   Platform,
-  SafeAreaView,
   ScrollView,
   Text,
   TouchableOpacity,
   View
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 const { width } = Dimensions.get('window');
 
 const onboardingData = [
   {
     title: 'Welcome to FillTrip',
-    description: 'Enter your start and end locations, let FillTrip calculate the distance, factor in your vehicle\'s fuel efficiency, and get an accurate fuel cost estimate with real-time prices.',
+    description: 'Enter your start and end locations, let FillTrip calculate the distance, factor in your vehicle’s fuel efficiency, and get an accurate fuel cost estimate with real-time prices.',
     image: require('../../assets/logo.svg'),
   },
   {
@@ -33,6 +33,7 @@ const onboardingData = [
 ];
 
 export default function OnboardingScreen() {
+  const router = useRouter();
   const [currentIndex, setCurrentIndex] = useState(0);
   const scrollViewRef = useRef<ScrollView>(null);
   const fadeAnim = useRef(new Animated.Value(1)).current;
@@ -128,7 +129,7 @@ export default function OnboardingScreen() {
             className={`${currentIndex === onboardingData.length - 1 ? 'bg-teal-500 px-6 py-3 rounded-xl' : 'bg-teal-500 w-12 h-12 rounded-full'} items-center justify-center`}
           >
             {currentIndex === onboardingData.length - 1 ? (
-              <Text className="text-white text-lg font-semibold">Let's Go</Text>
+              <Text className="text-white text-lg font-semibold">Let&apos;s Go</Text>
             ) : (
               <View className="absolute inset-0 items-center justify-center">
                 <Text className="text-white text-lg font-bold" style={{ marginTop: -2 }}>{'>'}</Text>

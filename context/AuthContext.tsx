@@ -73,7 +73,7 @@ async function fetchJSON(url: string, init: RequestInit = {}): Promise<any> {
   const controller = typeof AbortController !== 'undefined' ? new AbortController() : (null as any);
   const timeoutId = setTimeout(() => {
     try { controller?.abort(); } catch {}
-  }, 12000);
+  }, 10000);
 
   let res: Response;
   try {
@@ -88,7 +88,7 @@ async function fetchJSON(url: string, init: RequestInit = {}): Promise<any> {
     });
   } catch (e: any) {
     clearTimeout(timeoutId);
-    console.error('fetchJSON network error:', { url, message: e?.message });
+    console.warn('fetchJSON network warning:', { url, message: e?.message });
     const err = new Error(e?.message || 'Network request failed');
     (err as any).status = 0;
     throw err;
@@ -102,7 +102,7 @@ async function fetchJSON(url: string, init: RequestInit = {}): Promise<any> {
   } catch {}
   
   if (!res.ok || data?.success === false) {
-    console.error('fetchJSON error:', { url, status: res.status, data });
+    console.warn('fetchJSON response warning:', { url, status: res.status, data });
     const err = new Error(data?.error || `Request failed (${res.status})`) as any;
     err.status = res.status;
     if (data && typeof data === 'object') {
@@ -157,7 +157,8 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
         const normalizedUser = normalizeUser(backendUser);
         setCurrentUser(normalizedUser);
       } catch (err) {
-        console.error('Failed to restore session', err);
+        // Silent fail: no blocking error if session cannot be restored on startup
+        console.warn('Auth init: no session restored');
       } finally {
         setLoading(false);
       }

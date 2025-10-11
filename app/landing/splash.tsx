@@ -1,15 +1,16 @@
-import { router } from 'expo-router';
+import { useRouter } from 'expo-router';
 import React, { useEffect } from 'react';
 import {
   Animated,
   Image,
-  SafeAreaView,
   View
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 export default function SplashScreen() {
-  const logoScale = new Animated.Value(0.8);
-  const logoOpacity = new Animated.Value(0);
+  const router = useRouter();
+  const logoScale = React.useRef(new Animated.Value(0.8)).current;
+  const logoOpacity = React.useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
     // Logo entrance animation
@@ -28,11 +29,12 @@ export default function SplashScreen() {
 
     // Navigate to onboarding after 2 seconds
     const timer = setTimeout(() => {
-      router.replace('/landing/onboarding');
+      // Ensure navigation context is available
+      try { router.replace('/landing/onboarding'); } catch {}
     }, 2000);
 
     return () => clearTimeout(timer);
-  }, []);
+  }, [router, logoOpacity, logoScale]);
 
   return (
     <SafeAreaView className="flex-1 bg-gray-900">
