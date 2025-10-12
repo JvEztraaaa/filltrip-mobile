@@ -170,13 +170,13 @@ export default function TripsScreen() {
 
   const deleteTrip = async (id: number) => {
     try {
+      const formData = new FormData();
+      formData.append('id', id.toString());
+
       const response = await fetch(`${API_BASE}/trips_delete.php`, {
         method: 'POST',
         credentials: 'include',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ id }),
+        body: formData,
       });
 
       if (!response.ok) {
@@ -187,6 +187,7 @@ export default function TripsScreen() {
       
       if (data.success && data.deleted) {
         await loadTrips();
+        Alert.alert('Success', 'Trip deleted successfully!');
       } else {
         Alert.alert('Error', 'Failed to delete trip');
       }
@@ -484,15 +485,20 @@ const styles = StyleSheet.create({
     lineHeight: 24,
   },
   statsContainer: {
-    backgroundColor: '#1E293B',
-    borderRadius: 16,
-    padding: 20,
+    backgroundColor: 'rgba(30, 41, 59, 0.8)',
+    borderRadius: 20,
+    padding: 24,
     marginHorizontal: 20,
     marginBottom: 24,
     flexDirection: 'row',
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: '#334155',
+    borderColor: 'rgba(79, 209, 197, 0.2)',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.25,
+    shadowRadius: 20,
+    elevation: 10,
   },
   statItem: {
     flex: 1,
@@ -576,12 +582,17 @@ const styles = StyleSheet.create({
     fontWeight: '500',
   },
   tripCard: {
-    backgroundColor: '#1E293B',
-    borderRadius: 16,
+    backgroundColor: 'rgba(30, 41, 59, 0.6)',
+    borderRadius: 20,
     padding: 20,
-    marginBottom: 12,
+    marginBottom: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.2,
+    shadowRadius: 16,
+    elevation: 8,
     borderWidth: 1,
-    borderColor: '#334155',
+    borderColor: 'rgba(79, 209, 197, 0.1)',
     position: 'relative',
   },
   latestTripBadge: {
