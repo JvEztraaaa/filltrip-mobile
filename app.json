@@ -4,28 +4,41 @@
     "slug": "filltrip-mobile",
     "version": "1.0.0",
     "orientation": "portrait",
-    
     "scheme": "filltripmobile",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "infoPlist": {
+        "MGLMapboxAccessToken": "$(EXPO_PUBLIC_MAPBOX_TOKEN)"
+      }
     },
     "android": {
-      // Remove adaptiveIcon images for now; Expo Go will use defaults
       "edgeToEdgeEnabled": true,
-      "predictiveBackGestureEnabled": false
+      "predictiveBackGestureEnabled": false,
+      "package": "com.filltrip.app"
     },
     "web": {
       "output": "static",
       "bundler": "metro"
     },
     "plugins": [
-      "expo-router"
+      "expo-router",
+      "expo-build-properties",
+      ["@rnmapbox/maps", { "RNMapboxMapsDownload": "static" }]
     ],
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": false
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "a27c484c-b965-48ec-a375-5655dbaecd91"
+      },
+      "expoClient": {
+        "mapboxToken": "$(EXPO_PUBLIC_MAPBOX_TOKEN)"
+      }
     }
   }
 }
