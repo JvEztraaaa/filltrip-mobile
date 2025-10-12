@@ -1,3 +1,4 @@
+import * as Haptics from 'expo-haptics';
 import { useRouter } from 'expo-router';
 import React, { useRef } from 'react';
 import { Animated, Image, Platform, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
@@ -10,6 +11,10 @@ export default function BottomNavBar({ activeTab = 'home' }: BottomNavBarProps) 
   const router = useRouter();
 
   const handlePress = (route: string) => {
+    // Add haptic feedback for better UX
+    if (Platform.OS === 'ios') {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    }
     router.push(route as any);
   };
 
@@ -28,10 +33,10 @@ export default function BottomNavBar({ activeTab = 'home' }: BottomNavBarProps) 
 
     const handlePressIn = () => {
       Animated.spring(scaleAnim, {
-        toValue: 0.85,
+        toValue: 0.90,
         useNativeDriver: true,
-        tension: 300,
-        friction: 8,
+        tension: 400,
+        friction: 6,
       }).start();
     };
 
@@ -39,8 +44,8 @@ export default function BottomNavBar({ activeTab = 'home' }: BottomNavBarProps) 
       Animated.spring(scaleAnim, {
         toValue: 1,
         useNativeDriver: true,
-        tension: 300,
-        friction: 8,
+        tension: 400,
+        friction: 6,
       }).start();
     };
 
@@ -68,15 +73,15 @@ export default function BottomNavBar({ activeTab = 'home' }: BottomNavBarProps) 
   };
 
   const CenterButton = () => {
-    const isActive = activeTab === 'map';
+    const isActive = activeTab === 'maps';
     const scaleAnim = useRef(new Animated.Value(1)).current;
 
     const handlePressIn = () => {
       Animated.spring(scaleAnim, {
-        toValue: 0.9,
+        toValue: 0.92,
         useNativeDriver: true,
-        tension: 300,
-        friction: 8,
+        tension: 400,
+        friction: 6,
       }).start();
     };
 
@@ -84,8 +89,8 @@ export default function BottomNavBar({ activeTab = 'home' }: BottomNavBarProps) 
       Animated.spring(scaleAnim, {
         toValue: 1,
         useNativeDriver: true,
-        tension: 300,
-        friction: 8,
+        tension: 400,
+        friction: 6,
       }).start();
     };
 
@@ -121,13 +126,13 @@ export default function BottomNavBar({ activeTab = 'home' }: BottomNavBarProps) 
               icon={require('../../assets/calculator.png')}
               label="Calculator"
               isActive={activeTab === 'calculator'}
-              onPress={() => handlePress('/calculator')}
+              onPress={() => handlePress('/main/calculator')}
             />
             <NavItem
               icon={require('../../assets/trips.png')}
               label="Trips"
               isActive={activeTab === 'trips'}
-              onPress={() => handlePress('/trips')}
+              onPress={() => handlePress('/main/trips')}
             />
           </View>
 
@@ -139,13 +144,13 @@ export default function BottomNavBar({ activeTab = 'home' }: BottomNavBarProps) 
               icon={require('../../assets/logs.png')}
               label="Logs"
               isActive={activeTab === 'logs'}
-              onPress={() => handlePress('/logs')}
+              onPress={() => handlePress('/main/logs')}
             />
             <NavItem
               icon={require('../../assets/profile.png')}
               label="Profile"
               isActive={activeTab === 'profile'}
-              onPress={() => handlePress('/profile')}
+              onPress={() => handlePress('/main/profile')}
             />
           </View>
         </View>
@@ -169,15 +174,16 @@ const styles = StyleSheet.create({
   navContainer: {
     width: '100%',
     height: 64,
-    borderTopLeftRadius: 32,
-    borderTopRightRadius: 32,
-    backgroundColor: '#1E293B',
+    borderTopLeftRadius: 0,
+    borderTopRightRadius: 0,
+    backgroundColor: 'rgba(30, 41, 59, 0.95)',
     shadowColor: '#000',
-    shadowOpacity: 0.3,
-    shadowOffset: { width: 0, height: -2 },
-    shadowRadius: 16,
-    elevation: 12,
+    shadowOpacity: 0.25,
+    shadowOffset: { width: 0, height: -4 },
+    shadowRadius: 20,
+    elevation: 15,
     position: 'relative',
+    backdropFilter: 'blur(20px)',
   },
   notchContainer: {
     flex: 1,

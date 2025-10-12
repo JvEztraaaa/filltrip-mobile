@@ -12,7 +12,7 @@ export default function RootLayout() {
         <Stack.Screen name="landing/onboarding" options={{ headerShown: false }} />
         <Stack.Screen name="landing/login" options={{ headerShown: false }} />
         <Stack.Screen name="landing/signup" options={{ headerShown: false }} />
-        <Stack.Screen name="main/map" options={{ headerShown: false }} />
+        <Stack.Screen name="main" options={{ headerShown: false }} />
       </Stack>
     </AuthProvider>
   );
