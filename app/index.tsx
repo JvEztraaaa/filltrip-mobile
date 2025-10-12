@@ -44,12 +44,7 @@ export default function IndexScreen() {
   }
 
   if (currentUser) {
-    return (
-      <View className="flex-1 bg-gray-900 justify-center items-center px-6">
-        <Text className="text-white text-2xl font-bold mb-4 text-center">Welcome to FillTrip, {currentUser.firstName}! 🚗</Text>
-        <Text className="text-gray-400 text-center text-lg">Mobile app coming soon...</Text>
-      </View>
-    );
+    return <Redirect href="/main/map" />;
   }
 
   return null;

@@ -1,16 +1,16 @@
 import { useRouter } from 'expo-router';
 import React, { useState } from 'react';
 import {
-    Alert,
-    Image,
-    KeyboardAvoidingView,
-    Platform,
-    SafeAreaView,
-    ScrollView,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View,
+  Alert,
+  Image,
+  KeyboardAvoidingView,
+  Platform,
+  SafeAreaView,
+  ScrollView,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
 } from 'react-native';
 import { useAuth } from '../../context/AuthContext';
 
@@ -94,29 +94,65 @@ export default function LoginScreen() {
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
         >
-          {/* Dark Background Section with Grid Pattern */}
+          {/* Dark Background Section with Dotted Pattern */}
           <View 
-            className="bg-gray-900 pt-8 sm:pt-12 pb-6 sm:pb-8 px-4 sm:px-6 relative"
-            style={{
-              backgroundImage: Platform.OS === 'web' ? 
-                'linear-gradient(rgba(17, 24, 39, 0.95) 0%, rgba(17, 24, 39, 0.95) 100%), repeating-linear-gradient(0deg, rgba(255, 255, 255, 0.03) 0px, rgba(255, 255, 255, 0.03) 1px, transparent 1px, transparent 20px), repeating-linear-gradient(90deg, rgba(255, 255, 255, 0.03) 0px, rgba(255, 255, 255, 0.03) 1px, transparent 1px, transparent 20px)' : undefined,
-            }}
+            className="bg-gray-900 pt-20 pb-8 px-6 relative overflow-hidden"
           >
+            {/* Dotted Pattern Overlay */}
+            <View 
+              className="absolute inset-0"
+              style={{
+                opacity: 0.15,
+              }}
+            >
+              {Platform.OS === 'web' ? (
+                <View style={{
+                  width: '100%',
+                  height: '100%',
+                  backgroundImage: 'radial-gradient(circle, rgba(255, 255, 255, 0.4) 1px, transparent 1px)',
+                  backgroundSize: '20px 20px',
+                } as any} />
+              ) : (
+                <View style={{
+                  width: '100%',
+                  height: '100%',
+                  backgroundColor: 'transparent',
+                }}>
+                  {Array.from({ length: 50 }).map((_, rowIndex) => (
+                    <View key={rowIndex} style={{ flexDirection: 'row', marginBottom: 18 }}>
+                      {Array.from({ length: 20 }).map((_, colIndex) => (
+                        <View
+                          key={colIndex}
+                          style={{
+                            width: 2,
+                            height: 2,
+                            borderRadius: 1,
+                            backgroundColor: 'rgba(255, 255, 255, 0.5)',
+                            marginRight: 18,
+                          }}
+                        />
+                      ))}
+                    </View>
+                  ))}
+                </View>
+              )}
+            </View>
+            
             {/* Header - Left Aligned */}
-            <View className="items-start mb-4 sm:mb-6">
-              <View className="flex-row items-center mb-3 sm:mb-4">
+            <View className="items-start mb-2" style={{ position: 'relative', zIndex: 1 }}>
+              <View className="flex-row items-center mb-5">
                 <Image 
-                  source={require('../../assets/logo.svg')} 
+                  source={require('../../assets/logo.png')} 
                   style={{ 
-                    width: 28, 
-                    height: 28, 
-                    marginRight: 8
+                    width: 40, 
+                    height: 40, 
+                    marginRight: 12
                   }}
                 />
                 <GradientText>FillTrip</GradientText>
               </View>
-              <Text className="text-white text-xl sm:text-2xl font-bold mb-1.5 sm:mb-2">Get Started now</Text>
-              <Text className="text-gray-400 text-xs sm:text-sm leading-5 max-w-sm">
+              <Text className="text-white text-3xl font-bold mb-2">Get Started now</Text>
+              <Text className="text-gray-400 text-base leading-6 max-w-sm">
                 Create an account or log in to explore Filltrip
               </Text>
             </View>
@@ -124,12 +160,13 @@ export default function LoginScreen() {
 
           {/* White Form Section with Curved Top */}
           <View className="flex-1 bg-white" style={{ 
-            borderTopLeftRadius: 20, 
-            borderTopRightRadius: 20,
-            marginTop: -12 
+            borderTopLeftRadius: 24, 
+            borderTopRightRadius: 24,
+            marginTop: -16,
+            minHeight: 520
           }}>
             {/* Tab Navigation */}
-            <View className="px-4 sm:px-6 pt-4 sm:pt-6 mb-3 sm:mb-4">
+            <View className="px-6 pt-5 mb-4">
               <View className="flex-row bg-gray-50 rounded-2xl p-1.5">
                 <TouchableOpacity
                   className={`flex-1 py-2.5 rounded-xl items-center ${
@@ -162,12 +199,12 @@ export default function LoginScreen() {
             </View>
 
             {/* Login Form */}
-            <View className="px-4 sm:px-6 space-y-2 sm:space-y-3">
+            <View className="px-6 space-y-3">
               {/* Email */}
               <View>
-                <Text className="text-gray-700 mb-1.5 font-medium text-xs sm:text-sm">Email</Text>
+                <Text className="text-gray-700 mb-1.5 font-medium text-sm">Email</Text>
                 <TextInput
-                  className="bg-gray-50 text-gray-900 px-3 sm:px-4 py-2.5 sm:py-3 rounded-xl border border-gray-200 text-xs sm:text-sm"
+                  className="bg-gray-50 text-gray-900 px-4 py-3 rounded-xl border border-gray-200 text-base"
                   placeholder="john.doe@gmail.com"
                   placeholderTextColor="#9CA3AF"
                   value={email}
@@ -180,10 +217,10 @@ export default function LoginScreen() {
 
               {/* Password */}
               <View>
-                <Text className="text-gray-700 mb-1.5 font-medium text-xs sm:text-sm">Password</Text>
+                <Text className="text-gray-700 mb-1.5 font-medium text-sm">Password</Text>
                 <View className="relative">
                   <TextInput
-                    className="bg-gray-50 text-gray-900 px-3 sm:px-4 py-2.5 sm:py-3 rounded-xl border border-gray-200 text-xs sm:text-sm pr-11 sm:pr-12"
+                    className="bg-gray-50 text-gray-900 px-4 py-3 rounded-xl border border-gray-200 text-base pr-12"
                     placeholder="••••••••"
                     placeholderTextColor="#9CA3AF"
                     value={password}
@@ -191,12 +228,16 @@ export default function LoginScreen() {
                     secureTextEntry={!showPassword}
                   />
                   <TouchableOpacity 
-                    className="absolute right-3 sm:right-4 top-2.5 sm:top-3"
+                    className="absolute right-4"
+                    style={{
+                      top: '50%',
+                      transform: [{ translateY: -10 }],
+                    }}
                     onPress={() => setShowPassword(!showPassword)}
                   >
                     <Image 
                       source={showPassword ? require('../../assets/hide.png') : require('../../assets/unhide.png')}
-                      style={{ width: 18, height: 18 }}
+                      style={{ width: 20, height: 20 }}
                       resizeMode="contain"
                     />
                   </TouchableOpacity>
@@ -204,7 +245,7 @@ export default function LoginScreen() {
               </View>
 
               {/* Remember Me and Forgot Password */}
-              <View className="flex-row justify-between items-center py-1">
+              <View className="flex-row justify-between items-center py-2">
                 <TouchableOpacity
                   className="flex-row items-center"
                   onPress={() => setRememberMe(!rememberMe)}
@@ -214,63 +255,74 @@ export default function LoginScreen() {
                   }`}>
                     {rememberMe && <Text className="text-white text-xs font-bold">✓</Text>}
                   </View>
-                  <Text className="text-gray-600 text-xs sm:text-sm">Remember me</Text>
+                  <Text className="text-gray-600 text-sm">Remember me</Text>
                 </TouchableOpacity>
                 <TouchableOpacity>
-                  <Text className="text-teal-600 font-medium text-xs sm:text-sm">Forgot Password ?</Text>
+                  <Text className="text-teal-600 font-medium text-sm">Forgot Password ?</Text>
                 </TouchableOpacity>
               </View>
 
               {/* Log In Button */}
               <TouchableOpacity
-                className={`py-3 sm:py-3.5 rounded-xl items-center mt-3 sm:mt-4 ${
+                className={`py-3.5 rounded-xl items-center mt-1 ${
                   loading ? 'bg-teal-400' : 'bg-teal-500'
                 }`}
                 onPress={handleLogin}
                 disabled={loading}
               >
-                <Text className="text-white text-sm sm:text-base font-semibold">
+                <Text className="text-white text-base font-semibold">
                   {loading ? 'Logging in...' : 'Log In'}
                 </Text>
               </TouchableOpacity>
 
               {/* Divider */}
-              <View className="flex-row items-center my-3 sm:my-4">
+              <View 
+                className="flex-row items-center" 
+                style={{
+                  marginTop: 16,
+                  marginBottom: 4
+                }}
+              >
                 <View className="flex-1 h-px bg-gray-200" />
-                <Text className="mx-3 sm:mx-4 text-gray-400 text-xs sm:text-sm">Or</Text>
+                <Text className="mx-4 text-gray-400 text-sm">Or</Text>
                 <View className="flex-1 h-px bg-gray-200" />
               </View>
 
               {/* Social Login Buttons */}
-              <View className="flex-row gap-2 sm:gap-3 mb-5 sm:mb-6">
+              <View 
+                className="flex-row gap-3"
+                style={{
+                  paddingBottom: Platform.OS === 'web' ? 32 : 8
+                }}
+              >
                 <TouchableOpacity
-                  className="flex-1 flex-row items-center justify-center py-2.5 sm:py-3 border border-gray-200 rounded-xl bg-white"
+                  className="flex-1 flex-row items-center justify-center py-2.5 border border-gray-200 rounded-xl bg-white"
                   onPress={() => handleSocialLogin('Google')}
                 >
                   <Image 
                     source={require('../../assets/google.png')} 
                     style={{ 
-                      width: 16, 
-                      height: 16, 
-                      marginRight: 6 
+                      width: 18, 
+                      height: 18, 
+                      marginRight: 8 
                     }}
                   />
-                  <Text className="text-gray-700 font-medium text-xs sm:text-sm">Google</Text>
+                  <Text className="text-gray-700 font-medium text-sm">Google</Text>
                 </TouchableOpacity>
 
                 <TouchableOpacity
-                  className="flex-1 flex-row items-center justify-center py-2.5 sm:py-3 border border-gray-200 rounded-xl bg-white"
+                  className="flex-1 flex-row items-center justify-center py-2.5 border border-gray-200 rounded-xl bg-white"
                   onPress={() => handleSocialLogin('Facebook')}
                 >
                   <Image 
                     source={require('../../assets/facebook.png')} 
                     style={{ 
-                      width: 16, 
-                      height: 16, 
-                      marginRight: 6 
+                      width: 18, 
+                      height: 18, 
+                      marginRight: 8 
                     }}
                   />
-                  <Text className="text-gray-700 font-medium text-xs sm:text-sm">Facebook</Text>
+                  <Text className="text-gray-700 font-medium text-sm">Facebook</Text>
                 </TouchableOpacity>
               </View>
             </View>

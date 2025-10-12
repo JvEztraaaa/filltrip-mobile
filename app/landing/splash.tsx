@@ -46,7 +46,7 @@ export default function SplashScreen() {
           }}
         >
           <Image 
-            source={require('../../assets/logo.svg')} 
+            source={require('../../assets/logo.png')} 
             style={{ 
               width: 120, 
               height: 120 
