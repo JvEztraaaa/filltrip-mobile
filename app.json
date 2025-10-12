@@ -10,13 +10,18 @@
     "ios": {
       "supportsTablet": true,
       "infoPlist": {
-        "MGLMapboxAccessToken": "$(EXPO_PUBLIC_MAPBOX_TOKEN)"
+        "MGLMapboxAccessToken": "$(EXPO_PUBLIC_MAPBOX_TOKEN)",
+        "NSLocationWhenInUseUsageDescription": "This app uses location to show your position on the map and help with route planning."
       }
     },
     "android": {
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false,
-      "package": "com.filltrip.app"
+      "package": "com.filltrip.app",
+      "permissions": [
+        "ACCESS_FINE_LOCATION",
+        "ACCESS_COARSE_LOCATION"
+      ]
     },
     "web": {
       "output": "static",
@@ -25,7 +30,13 @@
     "plugins": [
       "expo-router",
       "expo-build-properties",
-      ["@rnmapbox/maps", { "RNMapboxMapsDownload": "static" }]
+      ["@rnmapbox/maps", { "RNMapboxMapsDownload": "static" }],
+      [
+        "expo-location",
+        {
+          "locationAlwaysAndWhenInUsePermission": "This app uses location to show your position on the map and help with route planning."
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true,
