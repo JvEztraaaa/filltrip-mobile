@@ -1,5 +1,6 @@
 import * as Haptics from 'expo-haptics';
 import * as Location from 'expo-location';
+import { router } from 'expo-router';
 import React, { useEffect, useRef, useState } from 'react';
 import { Alert, Dimensions, Image, Modal, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import Animated, { FadeInDown, FadeOutUp, SlideInLeft, SlideOutLeft } from 'react-native-reanimated';
@@ -474,13 +475,14 @@ export default function MapScreen() {
           </View>
         </View>
 
-        {/* Route Info Display */}
+        {/* Route Info and Calculator Container */}
         {routeInfo && (
           <Animated.View
             entering={FadeInDown.duration(300)}
             exiting={FadeOutUp.duration(200)}
-            style={styles.routeInfoOverlay}
+            style={styles.bottomOverlayContainer}
           >
+            {/* Route Info Display */}
             <View style={styles.routeInfoContainer}>
               <View style={styles.routeInfoHeader}>
                 <Text style={styles.routeInfoTitle}>Route Overview</Text>
@@ -497,6 +499,31 @@ export default function MapScreen() {
                 </View>
               </View>
             </View>
+
+            {/* Fuel Calculator Button */}
+            <TouchableOpacity
+              style={styles.calculatorButton}
+              onPress={() => {
+                const startName = startLocation?.name || 'Start Location';
+                const endName = endLocation?.name || 'End Location';
+                router.push({
+                  pathname: '/main/calculator',
+                  params: {
+                    distanceKm: routeInfo.distance.toFixed(2),
+                    startName,
+                    endName,
+                  },
+                });
+              }}
+              activeOpacity={0.8}
+            >
+              <Text style={styles.calculatorButtonText}>
+                Calculator
+              </Text>
+              <Text style={styles.calculatorButtonDistance}>
+                {routeInfo.distance.toFixed(1)} km
+              </Text>
+            </TouchableOpacity>
           </Animated.View>
         )}
 
@@ -884,10 +911,18 @@ const styles = StyleSheet.create({
     height: 20,
     tintColor: 'white',
   },
-  // Modern Route Info Overlay
-  routeInfoOverlay: {
+  // Modern Route Info and Calculator Container
+  bottomOverlayContainer: {
     position: 'absolute',
     bottom: 100,
+    left: 20,
+    right: 20,
+    zIndex: 10,
+    gap: 12,
+  },
+  routeInfoOverlay: {
+    position: 'absolute',
+    bottom: 160,
     left: 20,
     right: 20,
     zIndex: 10,
@@ -935,6 +970,34 @@ const styles = StyleSheet.create({
     height: 30,
     backgroundColor: '#475569',
     marginHorizontal: 16,
+  },
+  // Calculator Button
+  calculatorButton: {
+    backgroundColor: '#4FD1C5',
+    borderRadius: 12,
+    padding: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 8,
+  },
+  calculatorButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#1E293B',
+  },
+  calculatorButtonDistance: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: '#1E293B',
+    backgroundColor: 'rgba(30, 41, 59, 0.1)',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
   },
   // Legacy route info styles (kept for compatibility)
   routeInfo: {
