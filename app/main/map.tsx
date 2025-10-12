@@ -1,9 +1,10 @@
-import React, { useState, useRef, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Modal, TextInput, ScrollView, Alert, Dimensions } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import * as Location from 'expo-location';
 import * as Haptics from 'expo-haptics';
+import * as Location from 'expo-location';
+import React, { useEffect, useRef, useState } from 'react';
+import { Alert, Dimensions, Image, Modal, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import Animated, { FadeInDown, FadeOutUp, SlideInLeft, SlideOutLeft } from 'react-native-reanimated';
+import { useAuth } from '../../context/AuthContext';
+import { API_BASE } from '../../src/config/api';
 import AnimatedPageContainer from '../components/AnimatedPageContainer';
 import BottomNavBar from '../components/BottomNavBar';
 import MapComponent from '../components/MapComponent';
@@ -19,7 +20,7 @@ interface RouteInfo {
   distance: number;
   duration: number;
   coordinates: number[][];
-  steps: Array<{ instruction: string }>;
+  steps: Array<{ maneuver: { instruction: string } }>;
 }
 
 interface SavedPlace {
@@ -29,6 +30,7 @@ interface SavedPlace {
 }
 
 export default function MapScreen() {
+  const { currentUser } = useAuth();
   const [isDarkMode, setIsDarkMode] = useState(false);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isSavedPlacesOpen, setIsSavedPlacesOpen] = useState(false);
@@ -36,24 +38,67 @@ export default function MapScreen() {
   const [endLocation, setEndLocation] = useState<{ coordinates: Coordinates; name: string } | null>(null);
   const [routeInfo, setRouteInfo] = useState<RouteInfo | null>(null);
   const [pickMode, setPickMode] = useState<'start' | 'end'>('start');
-  const [searchQuery, setSearchQuery] = useState('');
-  const [searchResults, setSearchResults] = useState<any[]>([]);
+  const [startSearchQuery, setStartSearchQuery] = useState('');
+  const [endSearchQuery, setEndSearchQuery] = useState('');
+  const [startSearchResults, setStartSearchResults] = useState<any[]>([]);
+  const [endSearchResults, setEndSearchResults] = useState<any[]>([]);
   const [savedPlaces, setSavedPlaces] = useState<SavedPlace[]>([]);
+  const [isDirectionsOpen, setIsDirectionsOpen] = useState(false);
   const [isSearching, setIsSearching] = useState(false);
+  const [isLoadingSavedPlaces, setIsLoadingSavedPlaces] = useState(false);
   const mapRef = useRef<any>(null);
 
-  // Load saved places from storage
+  // Load saved places from database when component mounts or user changes
   useEffect(() => {
-    loadSavedPlaces();
-  }, []);
+    if (currentUser) {
+      loadSavedPlaces();
+    } else {
+      setSavedPlaces([]);
+    }
+  }, [currentUser]);
 
   const loadSavedPlaces = async () => {
-    // In a real app, this would load from AsyncStorage or server
-    // For now, using mock data
-    setSavedPlaces([
-      { id: '1', name: 'Home', coordinates: { longitude: 121.0244, latitude: 14.5547 } },
-      { id: '2', name: 'Office', coordinates: { longitude: 121.0364, latitude: 14.5565 } },
-    ]);
+    if (!currentUser) {
+      setSavedPlaces([]);
+      return;
+    }
+
+    setIsLoadingSavedPlaces(true);
+    try {
+      const response = await fetch(`${API_BASE}/saved_places_list.php`, {
+        method: 'GET',
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const data = await response.json();
+      
+      if (data.success && Array.isArray(data.items)) {
+        const places = data.items.map((item: any) => ({
+          id: item.id.toString(),
+          name: item.name,
+          coordinates: {
+            longitude: parseFloat(item.longitude) || 0,
+            latitude: parseFloat(item.latitude) || 0,
+          },
+        }));
+        setSavedPlaces(places);
+      } else {
+        console.error('Failed to load saved places:', data.error);
+        setSavedPlaces([]);
+      }
+    } catch (error) {
+      console.error('Error loading saved places:', error);
+      setSavedPlaces([]);
+    } finally {
+      setIsLoadingSavedPlaces(false);
+    }
   };
 
   const toggleDarkMode = () => {
@@ -71,40 +116,98 @@ export default function MapScreen() {
     setIsSavedPlacesOpen(!isSavedPlacesOpen);
   };
 
-  const searchLocation = async (query: string) => {
-    if (query.length < 3) {
-      setSearchResults([]);
+  const searchLocation = async (query: string, type: 'start' | 'end') => {
+    if (!query || query.length < 3) {
+      if (type === 'start') {
+        setStartSearchResults([]);
+      } else {
+        setEndSearchResults([]);
+      }
       return;
     }
 
     setIsSearching(true);
     try {
       const url = `https://nominatim.openstreetmap.org/search?format=json&limit=5&countrycodes=ph&q=${encodeURIComponent(query)}`;
-      const response = await fetch(url, { headers: { "Accept-Language": "en" } });
-      const results = await response.json();
-      setSearchResults(results || []);
+      const response = await fetch(url, { 
+        headers: { 
+          "Accept-Language": "en",
+          "User-Agent": "FillTrip Mobile App"
+        }
+      });
+      
+      if (!response.ok) {
+        console.error(`Search API error: ${response.status} ${response.statusText}`);
+        throw new Error(`Search service unavailable (${response.status})`);
+      }
+      
+      const text = await response.text();
+      
+      if (!text || text.trim() === '') {
+        console.error('Empty response from search service');
+        throw new Error('Empty response from search service');
+      }
+      
+      let results;
+      try {
+        results = JSON.parse(text);
+      } catch (parseError) {
+        console.error('JSON parse error:', parseError);
+        console.error('Response text:', text.substring(0, 200));
+        throw new Error('Invalid response format from search service');
+      }
+      
+      if (!Array.isArray(results)) {
+        console.error('Unexpected response format:', typeof results);
+        results = [];
+      }
+      
+      if (type === 'start') {
+        setStartSearchResults(results);
+      } else {
+        setEndSearchResults(results);
+      }
     } catch (error) {
-      console.error('Search error:', error);
-      setSearchResults([]);
+      console.error(`Search error for "${query}":`, error);
+      
+      // Clear results on error
+      if (type === 'start') {
+        setStartSearchResults([]);
+      } else {
+        setEndSearchResults([]);
+      }
+      
+      // Only show alert for network/timeout errors, not for empty queries
+      if (query.length >= 3) {
+        setTimeout(() => {
+          Alert.alert(
+            'Search Error',
+            'Unable to search for locations. Please check your internet connection and try again.',
+            [{ text: 'OK' }]
+          );
+        }, 100);
+      }
     } finally {
       setIsSearching(false);
     }
   };
 
-  const selectSearchResult = (result: any) => {
+  const selectSearchResult = (result: any, type: 'start' | 'end') => {
     const coordinates = {
       longitude: parseFloat(result.lon),
       latitude: parseFloat(result.lat),
     };
     
-    if (pickMode === 'start') {
+    if (type === 'start') {
       setStartLocation({ coordinates, name: result.display_name });
+      setStartSearchQuery('');
+      setStartSearchResults([]);
     } else {
       setEndLocation({ coordinates, name: result.display_name });
+      setEndSearchQuery('');
+      setEndSearchResults([]);
     }
     
-    setSearchQuery('');
-    setSearchResults([]);
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
   };
 
@@ -168,21 +271,53 @@ export default function MapScreen() {
     setEndLocation(temp);
   };
 
-  const savePlace = (location: { coordinates: Coordinates; name: string } | null, type: 'start' | 'end') => {
+  const savePlace = async (location: { coordinates: Coordinates; name: string } | null, type: 'start' | 'end') => {
     if (!location) {
       Alert.alert('Error', `No ${type} location to save`);
       return;
     }
 
-    const newPlace: SavedPlace = {
-      id: Date.now().toString(),
-      name: location.name,
-      coordinates: location.coordinates,
-    };
+    if (!currentUser) {
+      Alert.alert('Error', 'You must be logged in to save places');
+      return;
+    }
 
-    setSavedPlaces(prev => [newPlace, ...prev.slice(0, 9)]); // Keep max 10 places
-    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    Alert.alert('Success', `${type} location saved successfully!`);
+    try {
+      const response = await fetch(`${API_BASE}/saved_places_add.php`, {
+        method: 'POST',
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          name: location.name,
+          latitude: location.coordinates.latitude,
+          longitude: location.coordinates.longitude,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const data = await response.json();
+      
+      if (data.success) {
+        if (data.duplicate) {
+          Alert.alert('Info', 'This place is already saved');
+        } else {
+          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+          Alert.alert('Success', `${type} location saved successfully!`);
+          // Reload saved places to get the updated list
+          await loadSavedPlaces();
+        }
+      } else {
+        throw new Error(data.error || 'Failed to save place');
+      }
+    } catch (error) {
+      console.error('Error saving place:', error);
+      Alert.alert('Error', 'Failed to save place. Please try again.');
+    }
   };
 
   const useSavedPlace = (place: SavedPlace, type: 'start' | 'end') => {
@@ -195,9 +330,45 @@ export default function MapScreen() {
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
   };
 
-  const deleteSavedPlace = (id: string) => {
-    setSavedPlaces(prev => prev.filter(place => place.id !== id));
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+  const deleteSavedPlace = async (id: string) => {
+    if (!currentUser) {
+      Alert.alert('Error', 'You must be logged in to delete places');
+      return;
+    }
+
+    try {
+      const response = await fetch(`${API_BASE}/saved_places_delete.php`, {
+        method: 'POST',
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          id: parseInt(id),
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const data = await response.json();
+      
+      if (data.success) {
+        if (data.deleted) {
+          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+          // Reload saved places to get the updated list
+          await loadSavedPlaces();
+        } else {
+          Alert.alert('Error', 'Place not found or already deleted');
+        }
+      } else {
+        throw new Error(data.error || 'Failed to delete place');
+      }
+    } catch (error) {
+      console.error('Error deleting place:', error);
+      Alert.alert('Error', 'Failed to delete place. Please try again.');
+    }
   };
 
   // Calculate route when both locations are set
@@ -219,16 +390,26 @@ export default function MapScreen() {
             endLocation={endLocation}
             routeCoordinates={routeInfo?.coordinates}
             onMapPress={(coordinates: Coordinates) => {
+              const label = `Dropped pin (${coordinates.latitude.toFixed(4)}, ${coordinates.longitude.toFixed(4)})`;
+              
+              // Web version logic: first click -> start, second click -> end, then use pickMode
+              if (!startLocation) {
+                setStartLocation({ coordinates, name: label });
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                return;
+              }
+              
+              if (!endLocation) {
+                setEndLocation({ coordinates, name: label });
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                return;
+              }
+              
+              // Both locations set, use pickMode
               if (pickMode === 'start') {
-                setStartLocation({ 
-                  coordinates, 
-                  name: `Dropped pin (${coordinates.latitude.toFixed(4)}, ${coordinates.longitude.toFixed(4)})` 
-                });
+                setStartLocation({ coordinates, name: label });
               } else {
-                setEndLocation({ 
-                  coordinates, 
-                  name: `Dropped pin (${coordinates.latitude.toFixed(4)}, ${coordinates.longitude.toFixed(4)})` 
-                });
+                setEndLocation({ coordinates, name: label });
               }
               Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
             }}
@@ -243,7 +424,11 @@ export default function MapScreen() {
             onPress={toggleMenu}
             activeOpacity={0.8}
           >
-            <Text style={styles.buttonIcon}>☰</Text>
+            <View style={styles.hamburgerIcon}>
+              <View style={styles.hamburgerLine} />
+              <View style={styles.hamburgerLine} />
+              <View style={styles.hamburgerLine} />
+            </View>
           </TouchableOpacity>
 
           {/* Right Side Controls */}
@@ -254,7 +439,11 @@ export default function MapScreen() {
               onPress={toggleDarkMode}
               activeOpacity={0.8}
             >
-              <Text style={styles.buttonIcon}>{isDarkMode ? '☀️' : '🌙'}</Text>
+              <Image 
+                source={isDarkMode ? require('../../assets/light-mode.png') : require('../../assets/dark-mode.png')}
+                style={styles.controlIcon}
+                resizeMode="contain"
+              />
             </TouchableOpacity>
 
             {/* Saved Places Button */}
@@ -263,7 +452,24 @@ export default function MapScreen() {
               onPress={toggleSavedPlaces}
               activeOpacity={0.8}
             >
-              <Text style={styles.buttonIcon}>📍</Text>
+              <Image 
+                source={require('../../assets/saved-places.png')}
+                style={styles.savedPlacesIcon}
+                resizeMode="contain"
+              />
+            </TouchableOpacity>
+
+            {/* Swap Button */}
+            <TouchableOpacity
+              style={[styles.controlButton, styles.swapButton]}
+              onPress={swapLocations}
+              activeOpacity={0.8}
+            >
+              <Image 
+                source={require('../../assets/swap.png')}
+                style={styles.swapIcon}
+                resizeMode="contain"
+              />
             </TouchableOpacity>
           </View>
         </View>
@@ -273,10 +479,24 @@ export default function MapScreen() {
           <Animated.View
             entering={FadeInDown.duration(300)}
             exiting={FadeOutUp.duration(200)}
-            style={styles.routeInfo}
+            style={styles.routeInfoOverlay}
           >
-            <Text style={styles.routeDistance}>{routeInfo.distance.toFixed(1)} km</Text>
-            <Text style={styles.routeDuration}>{routeInfo.duration} min</Text>
+            <View style={styles.routeInfoContainer}>
+              <View style={styles.routeInfoHeader}>
+                <Text style={styles.routeInfoTitle}>Route Overview</Text>
+              </View>
+              <View style={styles.routeInfoDetails}>
+                <View style={styles.routeInfoMetric}>
+                  <Text style={styles.routeMetricValue}>{routeInfo.distance.toFixed(1)}</Text>
+                  <Text style={styles.routeMetricLabel}>km</Text>
+                </View>
+                <View style={styles.routeInfoSeparator} />
+                <View style={styles.routeInfoMetric}>
+                  <Text style={styles.routeMetricValue}>{routeInfo.duration}</Text>
+                  <Text style={styles.routeMetricLabel}>min</Text>
+                </View>
+              </View>
+            </View>
           </Animated.View>
         )}
 
@@ -293,114 +513,156 @@ export default function MapScreen() {
               exiting={SlideOutLeft.duration(200)}
               style={styles.menuPanel}
             >
-              <ScrollView style={styles.menuContent} showsVerticalScrollIndicator={false}>
+              {/* Header */}
+              <View style={styles.menuHeader}>
                 <Text style={styles.menuTitle}>Route Planner</Text>
-
-                {/* Search Section */}
-                <View style={styles.searchSection}>
-                  <TextInput
-                    style={styles.searchInput}
-                    placeholder="Search for a location..."
-                    placeholderTextColor="#94A3B8"
-                    value={searchQuery}
-                    onChangeText={(text) => {
-                      setSearchQuery(text);
-                      searchLocation(text);
-                    }}
+                <TouchableOpacity
+                  style={styles.closeButton}
+                  onPress={() => setIsMenuOpen(false)}
+                >
+                  <Image 
+                    source={require('../../assets/exit.png')}
+                    style={styles.closeIcon}
+                    resizeMode="contain"
                   />
-                  
-                  {searchResults.length > 0 && (
-                    <View style={styles.searchResults}>
-                      {searchResults.map((result, index) => (
-                        <TouchableOpacity
-                          key={index}
-                          style={styles.searchResultItem}
-                          onPress={() => selectSearchResult(result)}
-                        >
-                          <Text style={styles.searchResultText} numberOfLines={2}>
-                            {result.display_name}
-                          </Text>
-                        </TouchableOpacity>
-                      ))}
+                </TouchableOpacity>
+              </View>
+
+              <ScrollView style={styles.menuContent} showsVerticalScrollIndicator={false}>
+                {/* Location Inputs */}
+                <View style={styles.locationsContainer}>
+                  {/* Start Location */}
+                  <View style={styles.locationInput}>
+                    <Text style={styles.locationLabel}>Start</Text>
+                    <TextInput
+                      style={styles.modernSearchInput}
+                      placeholder="Enter starting point"
+                      placeholderTextColor="#94A3B8"
+                      value={startSearchQuery}
+                      onChangeText={(text) => {
+                        setStartSearchQuery(text);
+                        searchLocation(text, 'start');
+                      }}
+                    />
+                    <Text style={styles.currentLocationDisplay} numberOfLines={1}>
+                      {startLocation ? startLocation.name : 'Not set'}
+                    </Text>
+                    
+                    {startSearchResults.length > 0 && (
+                      <View style={styles.searchResults}>
+                        {startSearchResults.map((result: any, index: number) => (
+                          <TouchableOpacity
+                            key={index}
+                            style={styles.searchResultItem}
+                            onPress={() => selectSearchResult(result, 'start')}
+                          >
+                            <Text style={styles.searchResultText} numberOfLines={2}>
+                              {result.display_name}
+                            </Text>
+                          </TouchableOpacity>
+                        ))}
+                      </View>
+                    )}
+                  </View>
+
+                  {/* End Location */}
+                  <View style={styles.locationInput}>
+                    <Text style={styles.locationLabel}>Destination</Text>
+                    <TextInput
+                      style={styles.modernSearchInput}
+                      placeholder="Enter destination"
+                      placeholderTextColor="#94A3B8"
+                      value={endSearchQuery}
+                      onChangeText={(text) => {
+                        setEndSearchQuery(text);
+                        searchLocation(text, 'end');
+                      }}
+                    />
+                    <Text style={styles.currentLocationDisplay} numberOfLines={1}>
+                      {endLocation ? endLocation.name : 'Not set'}
+                    </Text>
+                    
+                    {endSearchResults.length > 0 && (
+                      <View style={styles.searchResults}>
+                        {endSearchResults.map((result: any, index: number) => (
+                          <TouchableOpacity
+                            key={index}
+                            style={styles.searchResultItem}
+                            onPress={() => selectSearchResult(result, 'end')}
+                          >
+                            <Text style={styles.searchResultText} numberOfLines={2}>
+                              {result.display_name}
+                            </Text>
+                          </TouchableOpacity>
+                        ))}
+                      </View>
+                    )}
+                  </View>
+                </View>
+
+                {/* Route Information */}
+                {routeInfo && (
+                  <View style={styles.routeInfoCard}>
+                    <View style={styles.routeInfoRow}>
+                      <View style={styles.routeInfoItem}>
+                        <Text style={styles.routeInfoLabel}>Distance</Text>
+                        <Text style={styles.routeInfoValue}>{routeInfo.distance.toFixed(1)} km</Text>
+                      </View>
+                      <View style={styles.routeInfoDivider} />
+                      <View style={styles.routeInfoItem}>
+                        <Text style={styles.routeInfoLabel}>Duration</Text>
+                        <Text style={styles.routeInfoValue}>{routeInfo.duration} min</Text>
+                      </View>
                     </View>
-                  )}
-                </View>
-
-                {/* Pick Mode Selection */}
-                <View style={styles.pickModeSection}>
-                  <Text style={styles.sectionTitle}>Map Click Mode</Text>
-                  <View style={styles.pickModeButtons}>
-                    <TouchableOpacity
-                      style={[styles.pickModeButton, pickMode === 'start' && styles.pickModeButtonActive]}
-                      onPress={() => setPickMode('start')}
-                    >
-                      <Text style={[styles.pickModeText, pickMode === 'start' && styles.pickModeTextActive]}>
-                        Pick Start
-                      </Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity
-                      style={[styles.pickModeButton, pickMode === 'end' && styles.pickModeButtonActive]}
-                      onPress={() => setPickMode('end')}
-                    >
-                      <Text style={[styles.pickModeText, pickMode === 'end' && styles.pickModeTextActive]}>
-                        Pick End
-                      </Text>
-                    </TouchableOpacity>
-                  </View>
-                </View>
-
-                {/* Current Locations */}
-                <View style={styles.locationsSection}>
-                  <View style={styles.locationItem}>
-                    <Text style={styles.locationLabel}>Start:</Text>
-                    <Text style={styles.locationText} numberOfLines={2}>
-                      {startLocation ? startLocation.name : '(none)'}
-                    </Text>
-                  </View>
-                  <View style={styles.locationItem}>
-                    <Text style={styles.locationLabel}>End:</Text>
-                    <Text style={styles.locationText} numberOfLines={2}>
-                      {endLocation ? endLocation.name : '(none)'}
-                    </Text>
-                  </View>
-                </View>
-
-                {/* Action Buttons */}
-                <View style={styles.actionButtons}>
-                  <TouchableOpacity style={styles.actionButton} onPress={getCurrentLocation}>
-                    <Text style={styles.actionButtonText}>📍 My Location</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity style={styles.actionButton} onPress={swapLocations}>
-                    <Text style={styles.actionButtonText}>🔄 Swap</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity style={[styles.actionButton, styles.clearButton]} onPress={clearRoute}>
-                    <Text style={[styles.actionButtonText, styles.clearButtonText]}>🗑️ Clear</Text>
-                  </TouchableOpacity>
-                </View>
-
-                {/* Turn-by-turn Directions */}
-                {routeInfo && routeInfo.steps.length > 0 && (
-                  <View style={styles.directionsSection}>
-                    <Text style={styles.sectionTitle}>Turn-by-turn Directions</Text>
-                    <ScrollView style={styles.directionsScroll} nestedScrollEnabled={true}>
-                      {routeInfo.steps.map((step, index) => (
-                        <View key={index} style={styles.directionStep}>
-                          <Text style={styles.stepNumber}>{index + 1}</Text>
-                          <Text style={styles.stepInstruction}>{step.instruction}</Text>
-                        </View>
-                      ))}
-                    </ScrollView>
                   </View>
                 )}
-              </ScrollView>
 
-              {/* Close Button */}
-              <TouchableOpacity
-                style={styles.closeButton}
-                onPress={() => setIsMenuOpen(false)}
-              >
-                <Text style={styles.closeButtonText}>✕</Text>
-              </TouchableOpacity>
+                {/* Quick Actions */}
+                <View style={styles.quickActions}>
+                  <TouchableOpacity style={styles.quickActionButton} onPress={getCurrentLocation}>
+                    <Text style={styles.quickActionText}>My Location</Text>
+                  </TouchableOpacity>
+                  
+                  <TouchableOpacity style={[styles.quickActionButton, styles.clearAction]} onPress={clearRoute}>
+                    <Text style={styles.quickActionText}>Clear</Text>
+                  </TouchableOpacity>
+                </View>
+
+                {/* Map Click Mode */}
+                <View style={styles.mapModeSection}>
+                  <Text style={styles.sectionTitle}>Tap map to set:</Text>
+                  <View style={styles.mapModeButtons}>
+                    <TouchableOpacity
+                      style={[styles.mapModeButton, pickMode === 'start' && styles.mapModeButtonActive]}
+                      onPress={() => setPickMode('start')}
+                    >
+                      <Text style={[styles.mapModeText, pickMode === 'start' && styles.mapModeTextActive]}>
+                        Start
+                      </Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={[styles.mapModeButton, pickMode === 'end' && styles.mapModeButtonActive]}
+                      onPress={() => setPickMode('end')}
+                    >
+                      <Text style={[styles.mapModeText, pickMode === 'end' && styles.mapModeTextActive]}>
+                        End
+                      </Text>
+                    </TouchableOpacity>
+                  </View>
+                </View>
+
+                {/* Directions Button */}
+                {routeInfo && routeInfo.steps.length > 0 && (
+                  <TouchableOpacity
+                    style={styles.directionsButton}
+                    onPress={() => setIsDirectionsOpen(true)}
+                  >
+                    <Text style={styles.directionsButtonText}>
+                      View Turn-by-Turn Directions ({routeInfo.steps.length} steps)
+                    </Text>
+                  </TouchableOpacity>
+                )}
+              </ScrollView>
             </Animated.View>
           </View>
         </Modal>
@@ -423,28 +685,32 @@ export default function MapScreen() {
               {/* Save Current Locations */}
               <View style={styles.saveActions}>
                 <TouchableOpacity
-                  style={styles.saveButton}
+                  style={[styles.saveButton, !currentUser && styles.disabledButton]}
                   onPress={() => savePlace(startLocation, 'start')}
-                  disabled={!startLocation}
+                  disabled={!startLocation || !currentUser}
                 >
-                  <Text style={[styles.saveButtonText, !startLocation && styles.disabledText]}>
-                    💾 Save Start
+                  <Text style={[styles.saveButtonText, (!startLocation || !currentUser) && styles.disabledText]}>
+                    Save Start
                   </Text>
                 </TouchableOpacity>
                 <TouchableOpacity
-                  style={styles.saveButton}
+                  style={[styles.saveButton, !currentUser && styles.disabledButton]}
                   onPress={() => savePlace(endLocation, 'end')}
-                  disabled={!endLocation}
+                  disabled={!endLocation || !currentUser}
                 >
-                  <Text style={[styles.saveButtonText, !endLocation && styles.disabledText]}>
-                    💾 Save End
+                  <Text style={[styles.saveButtonText, (!endLocation || !currentUser) && styles.disabledText]}>
+                    Save End
                   </Text>
                 </TouchableOpacity>
               </View>
 
               {/* Saved Places List */}
               <ScrollView style={styles.savedPlacesList} showsVerticalScrollIndicator={false}>
-                {savedPlaces.length === 0 ? (
+                {!currentUser ? (
+                  <Text style={styles.emptyText}>Please log in to access saved places</Text>
+                ) : isLoadingSavedPlaces ? (
+                  <Text style={styles.emptyText}>Loading saved places...</Text>
+                ) : savedPlaces.length === 0 ? (
                   <Text style={styles.emptyText}>No saved places yet</Text>
                 ) : (
                   savedPlaces.map((place) => (
@@ -490,6 +756,55 @@ export default function MapScreen() {
             </Animated.View>
           </View>
         </Modal>
+
+        {/* Directions Modal */}
+        <Modal
+          visible={isDirectionsOpen}
+          animationType="slide"
+          transparent={true}
+          onRequestClose={() => setIsDirectionsOpen(false)}
+        >
+          <View style={styles.modalOverlay}>
+            <Animated.View
+              entering={FadeInDown.duration(300)}
+              exiting={FadeOutUp.duration(200)}
+              style={styles.directionsModal}
+            >
+              <View style={styles.directionsModalHeader}>
+                <Text style={styles.directionsModalTitle}>Turn-by-Turn Directions</Text>
+                <TouchableOpacity
+                  style={styles.directionsCloseButton}
+                  onPress={() => setIsDirectionsOpen(false)}
+                >
+                  <Image 
+                    source={require('../../assets/exit.png')}
+                    style={styles.closeIcon}
+                    resizeMode="contain"
+                  />
+                </TouchableOpacity>
+              </View>
+              
+              {routeInfo && (
+                <View style={styles.directionsModalInfo}>
+                  <Text style={styles.directionsModalDistance}>
+                    {routeInfo.distance.toFixed(1)} km • {routeInfo.duration} min
+                  </Text>
+                </View>
+              )}
+
+              <ScrollView style={styles.directionsModalContent} showsVerticalScrollIndicator={false}>
+                {routeInfo && routeInfo.steps.map((step, index) => (
+                  <View key={index} style={styles.directionsModalItem}>
+                    <View style={styles.directionsModalCounter}>
+                      <Text style={styles.directionsModalCounterText}>{index + 1}</Text>
+                    </View>
+                    <Text style={styles.directionsModalText}>{step.maneuver.instruction}</Text>
+                  </View>
+                ))}
+              </ScrollView>
+            </Animated.View>
+          </View>
+        </Modal>
       </AnimatedPageContainer>
       <BottomNavBar activeTab="maps" />
     </View>
@@ -519,7 +834,7 @@ const styles = StyleSheet.create({
   controlButton: {
     width: 48,
     height: 48,
-    borderRadius: 24,
+    borderRadius: 8,
     backgroundColor: 'rgba(30, 41, 59, 0.9)',
     backdropFilter: 'blur(10px)',
     justifyContent: 'center',
@@ -530,19 +845,98 @@ const styles = StyleSheet.create({
     shadowRadius: 3.84,
     elevation: 5,
   },
-  hamburgerButton: {
-    // Additional styles for hamburger button if needed
-  },
+  hamburgerButton: {},
   darkModeButton: {
     marginBottom: 12,
   },
-  savedPlacesButton: {
-    // Additional styles for saved places button if needed
+  savedPlacesButton: {},
+  swapButton: {
+    marginTop: 12,
   },
-  buttonIcon: {
-    fontSize: 20,
-    color: 'white',
+  hamburgerIcon: {
+    width: 20,
+    height: 16,
+    justifyContent: 'space-between',
   },
+  hamburgerLine: {
+    width: 20,
+    height: 2,
+    backgroundColor: 'white',
+    borderRadius: 1,
+  },
+  controlIcon: {
+    width: 24,
+    height: 24,
+    tintColor: 'white',
+  },
+  savedPlacesIcon: {
+    width: 20,
+    height: 20,
+    tintColor: 'white',
+  },
+  swapIcon: {
+    width: 20,
+    height: 20,
+    tintColor: 'white',
+  },
+  closeIcon: {
+    width: 20,
+    height: 20,
+    tintColor: 'white',
+  },
+  // Modern Route Info Overlay
+  routeInfoOverlay: {
+    position: 'absolute',
+    bottom: 100,
+    left: 20,
+    right: 20,
+    zIndex: 10,
+  },
+  routeInfoContainer: {
+    backgroundColor: 'rgba(30, 41, 59, 0.95)',
+    borderRadius: 16,
+    padding: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 8,
+  },
+  routeInfoHeader: {
+    marginBottom: 8,
+  },
+  routeInfoTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#94A3B8',
+    textAlign: 'center',
+  },
+  routeInfoDetails: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  routeInfoMetric: {
+    alignItems: 'center',
+    flex: 1,
+  },
+  routeMetricValue: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: '#4FD1C5',
+  },
+  routeMetricLabel: {
+    fontSize: 12,
+    color: '#94A3B8',
+    marginTop: 2,
+  },
+  routeInfoSeparator: {
+    width: 1,
+    height: 30,
+    backgroundColor: '#475569',
+    marginHorizontal: 16,
+  },
+  // Legacy route info styles (kept for compatibility)
   routeInfo: {
     position: 'absolute',
     bottom: 100,
@@ -575,6 +969,15 @@ const styles = StyleSheet.create({
     backgroundColor: '#1E293B',
     paddingTop: 60,
   },
+  menuHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingBottom: 20,
+    borderBottomWidth: 1,
+    borderBottomColor: '#334155',
+  },
   menuContent: {
     flex: 1,
     padding: 20,
@@ -583,41 +986,238 @@ const styles = StyleSheet.create({
     fontSize: 24,
     fontWeight: 'bold',
     color: 'white',
-    marginBottom: 24,
   },
-  searchSection: {
-    marginBottom: 24,
+  // Modern Location Inputs
+  locationsContainer: {
+    marginBottom: 20,
   },
-  searchInput: {
+  locationInput: {
+    marginBottom: 16,
+  },
+  locationLabel: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#4FD1C5',
+    marginBottom: 8,
+  },
+  modernSearchInput: {
     backgroundColor: '#334155',
-    borderRadius: 8,
-    padding: 12,
+    borderRadius: 12,
+    padding: 14,
     color: 'white',
     fontSize: 16,
+    borderWidth: 1,
+    borderColor: '#475569',
+  },
+  currentLocationDisplay: {
+    fontSize: 12,
+    color: '#94A3B8',
+    marginTop: 6,
+    fontStyle: 'italic',
   },
   searchResults: {
     marginTop: 8,
-    backgroundColor: '#334155',
+    backgroundColor: '#475569',
     borderRadius: 8,
     maxHeight: 200,
+    borderWidth: 1,
+    borderColor: '#64748B',
   },
   searchResultItem: {
     padding: 12,
     borderBottomWidth: 1,
-    borderBottomColor: '#475569',
+    borderBottomColor: '#64748B',
   },
   searchResultText: {
     color: '#E2E8F0',
     fontSize: 14,
   },
-  pickModeSection: {
-    marginBottom: 24,
+  // Route Info Card in Menu
+  routeInfoCard: {
+    backgroundColor: '#334155',
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 20,
+  },
+  routeInfoRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  routeInfoItem: {
+    alignItems: 'center',
+    flex: 1,
+  },
+  routeInfoLabel: {
+    fontSize: 12,
+    color: '#94A3B8',
+    marginBottom: 4,
+  },
+  routeInfoValue: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#4FD1C5',
+  },
+  routeInfoDivider: {
+    width: 1,
+    height: 24,
+    backgroundColor: '#475569',
+  },
+  // Quick Actions
+  quickActions: {
+    flexDirection: 'row',
+    marginBottom: 20,
+    gap: 8,
+  },
+  quickActionButton: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#334155',
+    borderRadius: 8,
+    padding: 10,
+    borderWidth: 1,
+    borderColor: '#475569',
+    gap: 6,
+  },
+  quickActionIcon: {
+    width: 16,
+    height: 16,
+    tintColor: '#4FD1C5',
+  },
+  quickActionText: {
+    color: 'white',
+    fontSize: 12,
+    fontWeight: '500',
+  },
+  clearAction: {
+    backgroundColor: '#DC2626',
+    borderColor: '#DC2626',
+  },
+  // Map Mode Section
+  mapModeSection: {
+    marginBottom: 20,
   },
   sectionTitle: {
-    fontSize: 16,
+    fontSize: 14,
     fontWeight: '600',
     color: '#4FD1C5',
     marginBottom: 12,
+  },
+  mapModeButtons: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  mapModeButton: {
+    flex: 1,
+    padding: 10,
+    borderRadius: 8,
+    backgroundColor: '#334155',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#475569',
+  },
+  mapModeButtonActive: {
+    backgroundColor: '#4FD1C5',
+    borderColor: '#4FD1C5',
+  },
+  mapModeText: {
+    color: '#E2E8F0',
+    fontSize: 14,
+    fontWeight: '500',
+  },
+  mapModeTextActive: {
+    color: '#1E293B',
+  },
+  directionsButton: {
+    backgroundColor: '#4FD1C5',
+    borderRadius: 8,
+    padding: 12,
+    alignItems: 'center',
+    marginBottom: 24,
+  },
+  directionsButtonText: {
+    color: '#1E293B',
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  // Directions Section
+  directionsSection: {
+    marginBottom: 24,
+  },
+  directionsContainer: {
+    backgroundColor: '#334155',
+    borderRadius: 8,
+    padding: 12,
+    maxHeight: 300,
+  },
+  directionItem: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    marginBottom: 12,
+    paddingBottom: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#475569',
+  },
+  stepCounter: {
+    color: '#4FD1C5',
+    fontSize: 14,
+    fontWeight: '600',
+    marginRight: 12,
+    marginTop: 2,
+    width: 25,
+  },
+  stepText: {
+    flex: 1,
+    color: '#E2E8F0',
+    fontSize: 14,
+    lineHeight: 20,
+  },
+  // Legacy styles (keeping for compatibility)
+  locationSection: {
+    marginBottom: 24,
+    backgroundColor: '#334155',
+    borderRadius: 12,
+    padding: 16,
+  },
+  locationSectionTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#4FD1C5',
+    marginBottom: 12,
+  },
+  searchContainer: {
+    marginBottom: 12,
+  },
+  searchSection: {
+    marginBottom: 24,
+  },
+  searchInput: {
+    backgroundColor: '#475569',
+    borderRadius: 8,
+    padding: 12,
+    color: 'white',
+    fontSize: 16,
+    borderWidth: 1,
+    borderColor: '#64748B',
+  },
+  currentLocation: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  currentLocationLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#94A3B8',
+  },
+  currentLocationText: {
+    flex: 1,
+    fontSize: 14,
+    color: '#E2E8F0',
+  },
+  pickModeSection: {
+    marginBottom: 24,
   },
   pickModeButtons: {
     flexDirection: 'row',
@@ -629,9 +1229,12 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     backgroundColor: '#334155',
     alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#475569',
   },
   pickModeButtonActive: {
     backgroundColor: '#4FD1C5',
+    borderColor: '#4FD1C5',
   },
   pickModeText: {
     color: '#E2E8F0',
@@ -646,12 +1249,6 @@ const styles = StyleSheet.create({
   },
   locationItem: {
     marginBottom: 12,
-  },
-  locationLabel: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#4FD1C5',
-    marginBottom: 4,
   },
   locationText: {
     fontSize: 14,
@@ -668,9 +1265,19 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     backgroundColor: '#334155',
     alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#475569',
+    flexDirection: 'column',
+    gap: 4,
+  },
+  actionIcon: {
+    width: 20,
+    height: 20,
+    tintColor: '#4FD1C5',
   },
   clearButton: {
     backgroundColor: '#DC2626',
+    borderColor: '#DC2626',
   },
   actionButtonText: {
     color: 'white',
@@ -679,9 +1286,6 @@ const styles = StyleSheet.create({
   },
   clearButtonText: {
     color: 'white',
-  },
-  directionsSection: {
-    marginBottom: 24,
   },
   directionsScroll: {
     maxHeight: 200,
@@ -713,12 +1317,9 @@ const styles = StyleSheet.create({
     lineHeight: 18,
   },
   closeButton: {
-    position: 'absolute',
-    top: 20,
-    right: 20,
     width: 32,
     height: 32,
-    borderRadius: 16,
+    borderRadius: 6,
     backgroundColor: '#DC2626',
     justifyContent: 'center',
     alignItems: 'center',
@@ -758,13 +1359,16 @@ const styles = StyleSheet.create({
     backgroundColor: '#4FD1C5',
     alignItems: 'center',
   },
+  disabledButton: {
+    backgroundColor: '#64748B',
+  },
   saveButtonText: {
     color: '#1E293B',
     fontSize: 14,
     fontWeight: '600',
   },
   disabledText: {
-    color: '#64748B',
+    color: '#94A3B8',
   },
   savedPlacesList: {
     flex: 1,
@@ -823,5 +1427,79 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     backgroundColor: '#334155',
     alignItems: 'center',
+  },
+  // Directions Modal
+  directionsModal: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    backgroundColor: '#1E293B',
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    maxHeight: screenHeight * 0.8,
+    padding: 20,
+  },
+  directionsModalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  directionsModalTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: 'white',
+  },
+  directionsCloseButton: {
+    width: 32,
+    height: 32,
+    borderRadius: 6,
+    backgroundColor: '#DC2626',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  directionsModalInfo: {
+    backgroundColor: '#334155',
+    borderRadius: 8,
+    padding: 12,
+    marginBottom: 16,
+    alignItems: 'center',
+  },
+  directionsModalDistance: {
+    color: '#4FD1C5',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  directionsModalContent: {
+    flex: 1,
+  },
+  directionsModalItem: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    padding: 12,
+    backgroundColor: '#334155',
+    borderRadius: 8,
+    marginBottom: 8,
+  },
+  directionsModalCounter: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: '#4FD1C5',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 12,
+  },
+  directionsModalCounterText: {
+    color: '#1E293B',
+    fontSize: 14,
+    fontWeight: 'bold',
+  },
+  directionsModalText: {
+    flex: 1,
+    color: '#E2E8F0',
+    fontSize: 14,
+    lineHeight: 20,
   },
 });
