@@ -1,16 +1,435 @@
-import React from 'react';
-import { SafeAreaView, StyleSheet, Text, View } from 'react-native';
+import React, { useCallback, useEffect, useState } from 'react';
+import {
+    Alert,
+    Dimensions,
+    RefreshControl,
+    SafeAreaView,
+    ScrollView,
+    StyleSheet,
+    Text,
+    TouchableOpacity,
+    View
+} from 'react-native';
+import Animated, { FadeInDown, FadeOutUp } from 'react-native-reanimated';
+import { useAuth } from '../../context/AuthContext';
+import { API_BASE } from '../../src/config/api';
 import AnimatedPageContainer from '../components/AnimatedPageContainer';
 import BottomNavBar from '../components/BottomNavBar';
 
+const { width: screenWidth } = Dimensions.get('window');
+
+interface Trip {
+  id: number;
+  startLocationName: string;
+  endLocationName: string;
+  distanceKm: number;
+  efficiencyKmPerL: number | null;
+  litersNeeded: number;
+  pricePerLiter: number | null;
+  fuelCost: number;
+  currency: string;
+  fuelType?: string | null;
+  vehicleLabel?: string | null;
+  createdAt: string;
+}
+
+interface GroupedTrips {
+  key: string;
+  label: string;
+  items: Trip[];
+  totalDistance: number;
+  totalTrips: number;
+}
+
 export default function TripsScreen() {
+  const { currentUser } = useAuth();
+  const [trips, setTrips] = useState<Trip[]>([]);
+  const [groupedTrips, setGroupedTrips] = useState<GroupedTrips[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [hasError, setHasError] = useState(false);
+  const [totalStats, setTotalStats] = useState({
+    totalDistance: 0,
+    totalTrips: 0,
+  });
+
+  const loadTrips = useCallback(async (isRefresh = false) => {
+    if (!currentUser) {
+      setTrips([]);
+      setGroupedTrips([]);
+      setTotalStats({ totalDistance: 0, totalTrips: 0 });
+      return;
+    }
+
+    if (isRefresh) {
+      setIsRefreshing(true);
+    } else {
+      setIsLoading(true);
+    }
+
+    try {
+      const response = await fetch(`${API_BASE}/trips_list.php`, {
+        method: 'GET',
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const data = await response.json();
+      
+      if (data.success && Array.isArray(data.trips)) {
+        // Normalize trip data to ensure proper types
+        const normalizedTrips = data.trips.map((trip: any) => ({
+          ...trip,
+          id: parseInt(trip.id) || 0,
+          distanceKm: parseFloat(trip.distanceKm) || 0,
+          efficiencyKmPerL: trip.efficiencyKmPerL ? parseFloat(trip.efficiencyKmPerL) : null,
+          litersNeeded: parseFloat(trip.litersNeeded) || 0,
+          pricePerLiter: trip.pricePerLiter ? parseFloat(trip.pricePerLiter) : null,
+          fuelCost: parseFloat(trip.fuelCost) || 0,
+          currency: trip.currency || 'PHP',
+          fuelType: trip.fuelType || 'Gasoline',
+          vehicleLabel: trip.vehicleLabel || null,
+        }));
+        
+        setTrips(normalizedTrips);
+        const grouped = groupTripsByMonth(normalizedTrips);
+        setGroupedTrips(grouped);
+        
+        // Calculate total stats
+        const totalDistance = normalizedTrips.reduce((sum: number, trip: Trip) => {
+          const distance = typeof trip.distanceKm === 'number' && !isNaN(trip.distanceKm) ? trip.distanceKm : 0;
+          return sum + distance;
+        }, 0);
+        setTotalStats({
+          totalDistance: totalDistance || 0,
+          totalTrips: normalizedTrips.length || 0,
+        });
+      } else {
+        console.error('Failed to load trips:', data.error);
+        setTrips([]);
+        setGroupedTrips([]);
+        setTotalStats({ totalDistance: 0, totalTrips: 0 });
+      }
+    } catch (error) {
+      console.error('Error loading trips:', error);
+      setHasError(true);
+      setTrips([]);
+      setGroupedTrips([]);
+      setTotalStats({ totalDistance: 0, totalTrips: 0 });
+      Alert.alert('Error', 'Failed to load trips. Please try again.');
+    } finally {
+      setIsLoading(false);
+      setIsRefreshing(false);
+    }
+  }, [currentUser]);
+
+  const groupTripsByMonth = (trips: Trip[]): GroupedTrips[] => {
+    const groups: { [key: string]: Trip[] } = {};
+    
+    for (const trip of trips) {
+      // Skip invalid trips
+      if (!trip || typeof trip !== 'object' || !trip.createdAt) continue;
+      
+      const date = new Date(trip.createdAt);
+      if (isNaN(date.getTime())) continue;
+      
+      const key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+      if (!groups[key]) {
+        groups[key] = [];
+      }
+      groups[key].push(trip);
+    }
+    
+    const ordered = Object.keys(groups).sort((a, b) => b.localeCompare(a));
+    
+    return ordered.map(key => {
+      const items = groups[key].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+      const totalDistance = items.reduce((sum, trip) => {
+        const distance = typeof trip.distanceKm === 'number' && !isNaN(trip.distanceKm) ? trip.distanceKm : 0;
+        return sum + distance;
+      }, 0);
+      
+      return {
+        key,
+        label: new Date(`${key}-01T00:00:00`).toLocaleString(undefined, { 
+          month: 'long', 
+          year: 'numeric' 
+        }),
+        items,
+        totalDistance: totalDistance || 0,
+        totalTrips: items.length || 0,
+      };
+    });
+  };
+
+  const deleteTrip = async (id: number) => {
+    try {
+      const response = await fetch(`${API_BASE}/trips_delete.php`, {
+        method: 'POST',
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ id }),
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const data = await response.json();
+      
+      if (data.success && data.deleted) {
+        await loadTrips();
+      } else {
+        Alert.alert('Error', 'Failed to delete trip');
+      }
+    } catch (error) {
+      console.error('Error deleting trip:', error);
+      Alert.alert('Error', 'Failed to delete trip. Please try again.');
+    }
+  };
+
+  const confirmDeleteTrip = (trip: Trip) => {
+    Alert.alert(
+      'Delete Trip',
+      `Are you sure you want to delete the trip from ${trip.startLocationName} to ${trip.endLocationName}?`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        { 
+          text: 'Delete', 
+          style: 'destructive',
+          onPress: () => deleteTrip(trip.id)
+        },
+      ]
+    );
+  };
+
+  const formatDate = (dateString: string) => {
+    const date = new Date(dateString);
+    return date.toLocaleDateString(undefined, {
+      month: 'short',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+    });
+  };
+
+  const formatCurrency = (amount: number, currency: string) => {
+    const symbols: { [key: string]: string } = { PHP: '₱', USD: '$' };
+    const safeAmount = typeof amount === 'number' && !isNaN(amount) ? amount : 0;
+    const safeCurrency = currency || 'PHP';
+    return `${symbols[safeCurrency] || safeCurrency}${safeAmount.toFixed(2)}`;
+  };
+
+  const safeNumber = (value: any, defaultValue: number = 0): number => {
+    const num = typeof value === 'number' ? value : parseFloat(value);
+    return !isNaN(num) ? num : defaultValue;
+  };
+
+  const formatDistance = (distance: any): string => {
+    const num = safeNumber(distance);
+    return `${num.toFixed(1)} km`;
+  };
+
+  const formatLiters = (liters: any): string => {
+    const num = safeNumber(liters);
+    return `${num.toFixed(1)} L`;
+  };
+
+  useEffect(() => {
+    loadTrips();
+  }, [loadTrips]);
+
+  const onRefresh = () => {
+    setHasError(false);
+    loadTrips(true);
+  };
+
+  if (!currentUser) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <AnimatedPageContainer>
+          <View style={styles.emptyStateContainer}>
+            <Text style={styles.emptyStateIcon}>🔐</Text>
+            <Text style={styles.emptyStateTitle}>Sign In Required</Text>
+            <Text style={styles.emptyStateText}>
+              Please sign in to view your travel history and saved trips.
+            </Text>
+          </View>
+        </AnimatedPageContainer>
+        <BottomNavBar activeTab="trips" />
+      </SafeAreaView>
+    );
+  }
+
   return (
     <SafeAreaView style={styles.container}>
       <AnimatedPageContainer>
-        <View style={styles.content}>
-          <Text style={styles.title}>Trips</Text>
-          <Text style={styles.subtitle}>Your travel history and planned trips</Text>
+        {/* Header with Export Button */}
+        <View style={styles.headerContainer}>
+          <View style={styles.headerText}>
+            <Text style={styles.title}>My Trips</Text>
+            <Text style={styles.subtitle}>
+              Track your journeys and explore your travel patterns over time
+            </Text>
+          </View>
+          
+          {totalStats.totalTrips > 0 && (
+            <TouchableOpacity 
+              style={styles.exportButton}
+              onPress={() => Alert.alert('Export', 'Export functionality coming soon!')}
+              activeOpacity={0.8}
+            >
+              <Text style={styles.exportButtonText}>📄 Export</Text>
+            </TouchableOpacity>
+          )}
         </View>
+
+        {/* Stats Overview */}
+        {totalStats.totalTrips > 0 && (
+          <Animated.View 
+            entering={FadeInDown.duration(300)}
+            style={styles.statsContainer}
+          >
+            <View style={styles.statItem}>
+              <Text style={styles.statValue}>{safeNumber(totalStats.totalDistance).toFixed(0)} km</Text>
+              <Text style={styles.statLabel}>TOTAL DISTANCE</Text>
+            </View>
+            <View style={styles.statSeparator} />
+            <View style={styles.statItem}>
+              <Text style={styles.statValue}>{totalStats.totalTrips || 0}</Text>
+              <Text style={styles.statLabel}>TOTAL JOURNEYS</Text>
+            </View>
+          </Animated.View>
+        )}
+
+        {/* Trips List */}
+        <ScrollView 
+          style={styles.scrollView}
+          showsVerticalScrollIndicator={false}
+          refreshControl={
+            <RefreshControl
+              refreshing={isRefreshing}
+              onRefresh={onRefresh}
+              tintColor="#4FD1C5"
+              colors={['#4FD1C5']}
+            />
+          }
+        >
+          {isLoading && trips.length === 0 ? (
+            <View style={styles.loadingContainer}>
+              <Text style={styles.loadingText}>Loading trips...</Text>
+            </View>
+          ) : hasError ? (
+            <Animated.View 
+              entering={FadeInDown.duration(500)}
+              style={styles.emptyStateContainer}
+            >
+              <Text style={styles.emptyStateIcon}>⚠️</Text>
+              <Text style={styles.emptyStateTitle}>Something went wrong</Text>
+              <Text style={styles.emptyStateText}>
+                Unable to load your trips. Pull down to refresh and try again.
+              </Text>
+            </Animated.View>
+          ) : groupedTrips.length === 0 ? (
+            <Animated.View 
+              entering={FadeInDown.duration(500)}
+              style={styles.emptyStateContainer}
+            >
+              <Text style={styles.emptyStateIcon}>🗺️</Text>
+              <Text style={styles.emptyStateTitle}>No Trips Yet</Text>
+              <Text style={styles.emptyStateText}>
+                Start planning routes on the map page to automatically track your trips here!
+              </Text>
+            </Animated.View>
+          ) : (
+            groupedTrips.filter(group => group && group.items && Array.isArray(group.items)).map((group, groupIndex) => (
+              <Animated.View
+                key={group.key}
+                entering={FadeInDown.duration(300).delay(groupIndex * 100)}
+                style={styles.monthGroup}
+              >
+                {/* Month Header */}
+                <View style={styles.monthHeader}>
+                  <Text style={styles.monthTitle}>{group.label}</Text>
+                  <View style={styles.monthStats}>
+                    <Text style={styles.monthStatsText}>
+                      {group.totalTrips} trip{group.totalTrips !== 1 ? 's' : ''} • {safeNumber(group.totalDistance).toFixed(0)} km total
+                    </Text>
+                  </View>
+                </View>
+
+                {/* Trip Items */}
+                {(group.items || []).filter(trip => trip && typeof trip === 'object').map((trip, tripIndex) => (
+                  <Animated.View
+                    key={trip.id}
+                    entering={FadeInDown.duration(200).delay((groupIndex * 100) + (tripIndex * 50))}
+                    exiting={FadeOutUp.duration(200)}
+                    style={styles.tripCard}
+                  >
+                    {tripIndex === 0 && (
+                      <View style={styles.latestTripBadge}>
+                        <Text style={styles.latestTripText}>Latest Trip</Text>
+                      </View>
+                    )}
+                    
+                    {/* Route Info */}
+                    <View style={styles.routeInfo}>
+                      <Text style={styles.routeLocation}>{trip.startLocationName}</Text>
+                      <Text style={styles.routeArrow}>→</Text>
+                      <Text style={styles.routeLocation}>{trip.endLocationName}</Text>
+                    </View>
+
+                    {/* Trip Details */}
+                    <View style={styles.tripDetails}>
+                      <Text style={styles.tripDate}>{formatDate(trip.createdAt)}</Text>
+                      {trip.vehicleLabel && (
+                        <Text style={styles.tripVehicle}>🚗 {trip.vehicleLabel}</Text>
+                      )}
+                      <Text style={styles.tripFuel}>⛽ {trip.fuelType || 'Gasoline'}</Text>
+                    </View>
+
+                    {/* Trip Metrics */}
+                    <View style={styles.tripMetrics}>
+                      <View style={styles.metricItem}>
+                        <Text style={styles.metricLabel}>Distance</Text>
+                        <Text style={styles.metricValue}>{formatDistance(trip.distanceKm)}</Text>
+                      </View>
+                      
+                      <View style={styles.metricItem}>
+                        <Text style={styles.metricLabel}>Fuel</Text>
+                        <Text style={styles.metricValue}>{formatLiters(trip.litersNeeded)}</Text>
+                      </View>
+                      
+                      <View style={styles.metricItem}>
+                        <Text style={styles.metricLabel}>Cost</Text>
+                        <Text style={styles.metricValue}>{formatCurrency(safeNumber(trip.fuelCost), trip.currency || 'PHP')}</Text>
+                      </View>
+                    </View>
+
+                    {/* Delete Button */}
+                    <TouchableOpacity
+                      style={styles.deleteButton}
+                      onPress={() => confirmDeleteTrip(trip)}
+                      activeOpacity={0.7}
+                    >
+                      <Text style={styles.deleteButtonText}>🗑️</Text>
+                    </TouchableOpacity>
+                  </Animated.View>
+                ))}
+              </Animated.View>
+            ))
+          )}
+          
+          <View style={styles.bottomPadding} />
+        </ScrollView>
       </AnimatedPageContainer>
       <BottomNavBar activeTab="trips" />
     </SafeAreaView>
@@ -20,26 +439,260 @@ export default function TripsScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F8FAFC',
+    backgroundColor: '#0F172A',
   },
+  header: {
+    paddingHorizontal: 20,
+    paddingTop: 20,
+    paddingBottom: 16,
+  },
+  headerContainer: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+    paddingHorizontal: 20,
+    paddingTop: 20,
+    paddingBottom: 16,
+  },
+  headerText: {
+    flex: 1,
+    marginRight: 16,
+  },
+  exportButton: {
+    backgroundColor: '#4FD1C5',
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 4,
+  },
+  exportButtonText: {
+    color: '#0F172A',
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  title: {
+    fontSize: 28,
+    fontWeight: '700',
+    color: '#FFFFFF',
+    marginBottom: 8,
+  },
+  subtitle: {
+    fontSize: 16,
+    color: '#94A3B8',
+    lineHeight: 24,
+  },
+  statsContainer: {
+    backgroundColor: '#1E293B',
+    borderRadius: 16,
+    padding: 20,
+    marginHorizontal: 20,
+    marginBottom: 24,
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#334155',
+  },
+  statItem: {
+    flex: 1,
+    alignItems: 'center',
+  },
+  statValue: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: '#4FD1C5',
+    marginBottom: 4,
+  },
+  statLabel: {
+    fontSize: 12,
+    color: '#94A3B8',
+    fontWeight: '600',
+  },
+  statSeparator: {
+    width: 1,
+    height: 40,
+    backgroundColor: '#475569',
+    marginHorizontal: 16,
+  },
+  scrollView: {
+    flex: 1,
+    paddingHorizontal: 20,
+  },
+  loadingContainer: {
+    paddingVertical: 60,
+    alignItems: 'center',
+  },
+  loadingText: {
+    color: '#94A3B8',
+    fontSize: 16,
+  },
+  emptyStateContainer: {
+    paddingVertical: 80,
+    alignItems: 'center',
+    paddingHorizontal: 40,
+  },
+  emptyStateIcon: {
+    fontSize: 64,
+    marginBottom: 24,
+  },
+  emptyStateTitle: {
+    fontSize: 24,
+    fontWeight: '700',
+    color: '#FFFFFF',
+    marginBottom: 12,
+    textAlign: 'center',
+  },
+  emptyStateText: {
+    fontSize: 16,
+    color: '#94A3B8',
+    textAlign: 'center',
+    lineHeight: 24,
+  },
+  monthGroup: {
+    marginBottom: 32,
+  },
+  monthHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 16,
+    paddingHorizontal: 4,
+  },
+  monthTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#4FD1C5',
+  },
+  monthStats: {
+    backgroundColor: '#334155',
+    borderRadius: 12,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+  },
+  monthStatsText: {
+    fontSize: 12,
+    color: '#94A3B8',
+    fontWeight: '500',
+  },
+  tripCard: {
+    backgroundColor: '#1E293B',
+    borderRadius: 16,
+    padding: 20,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: '#334155',
+    position: 'relative',
+  },
+  latestTripBadge: {
+    position: 'absolute',
+    top: -6,
+    right: 16,
+    backgroundColor: '#4FD1C5',
+    borderRadius: 12,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    zIndex: 1,
+  },
+  latestTripText: {
+    fontSize: 10,
+    fontWeight: '600',
+    color: '#0F172A',
+  },
+  routeInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  routeLocation: {
+    flex: 1,
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#FFFFFF',
+  },
+  routeArrow: {
+    fontSize: 16,
+    color: '#4FD1C5',
+    marginHorizontal: 8,
+    fontWeight: 'bold',
+  },
+  tripDetails: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 16,
+    flexWrap: 'wrap',
+    gap: 12,
+  },
+  tripDate: {
+    fontSize: 14,
+    color: '#94A3B8',
+    backgroundColor: '#334155',
+    borderRadius: 6,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+  },
+  tripVehicle: {
+    fontSize: 14,
+    color: '#94A3B8',
+    backgroundColor: '#334155',
+    borderRadius: 6,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+  },
+  tripFuel: {
+    fontSize: 14,
+    color: '#94A3B8',
+    backgroundColor: '#334155',
+    borderRadius: 6,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+  },
+  tripMetrics: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    gap: 16,
+  },
+  metricItem: {
+    flex: 1,
+    alignItems: 'center',
+    backgroundColor: '#334155',
+    borderRadius: 8,
+    paddingVertical: 12,
+    paddingHorizontal: 8,
+  },
+  metricLabel: {
+    fontSize: 12,
+    color: '#94A3B8',
+    marginBottom: 4,
+    fontWeight: '500',
+  },
+  metricValue: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#4FD1C5',
+  },
+  deleteButton: {
+    position: 'absolute',
+    top: 12,
+    right: 12,
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: '#DC2626',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  deleteButtonText: {
+    fontSize: 16,
+  },
+  bottomPadding: {
+    height: 40,
+  },
+  // Legacy styles for compatibility
   content: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
     padding: 24,
-  },
-  title: {
-    fontSize: 28,
-    fontWeight: '700',
-    color: '#1E293B',
-    marginBottom: 12,
-    textAlign: 'center',
-  },
-  subtitle: {
-    fontSize: 16,
-    color: '#64748B',
-    textAlign: 'center',
-    lineHeight: 24,
-    maxWidth: 280,
   },
 });

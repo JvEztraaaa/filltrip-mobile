@@ -14,6 +14,8 @@ import {
     TouchableOpacity,
     View
 } from 'react-native';
+import { useAuth } from '../../context/AuthContext';
+import { API_BASE } from '../../src/config/api';
 import { carModelsPH, motorcycleModelsPH } from '../../src/data/fuelEfficiency';
 import AnimatedPageContainer from '../components/AnimatedPageContainer';
 import BottomNavBar from '../components/BottomNavBar';
@@ -31,6 +33,10 @@ interface Vehicle {
 
 export default function CalculatorScreen() {
   const params = useLocalSearchParams();
+  const { currentUser } = useAuth();
+  
+  // Check if this calculation came from map page (has start/end locations)
+  const isFromMapRoute = !!(params.distanceKm && params.startName && params.endName);
   
   // Form state
   const [distance, setDistance] = useState('');
@@ -53,6 +59,7 @@ export default function CalculatorScreen() {
     cost: number;
     currency: string;
   } | null>(null);
+  const [tripSaved, setTripSaved] = useState(false);
   
   // Modal states
   const [showDistanceUnitModal, setShowDistanceUnitModal] = useState(false);
@@ -164,7 +171,7 @@ export default function CalculatorScreen() {
     setShowVehicleDropdown(false);
   };
   
-  const performCalculation = () => {
+  const performCalculation = async () => {
     if (!canCalculate) {
       Alert.alert('Error', 'Please fill all required fields with valid values.');
       return;
@@ -185,6 +192,24 @@ export default function CalculatorScreen() {
       currency
     });
     
+    // Save trip if this calculation came from map route and user is logged in
+    if (isFromMapRoute && currentUser) {
+      await saveTrip({
+        startLocationName: String(params.startName),
+        endLocationName: String(params.endName),
+        distanceKm: distanceKm,
+        efficiencyKmPerL: efficiencyValue,
+        litersNeeded: litersNeeded,
+        pricePerLiter: priceValue,
+        fuelCost: cost,
+        currency: currency,
+        fuelType: fuelType,
+        vehicleLabel: selectedVehicle ? 
+          `${selectedVehicle.typicalYears.split('-')[0]} ${selectedVehicle.make} ${selectedVehicle.model}` : 
+          ''
+      });
+    }
+    
     // Animate results
     Animated.parallel([
       Animated.timing(fadeAnim, {
@@ -201,6 +226,37 @@ export default function CalculatorScreen() {
       }),
     ]).start();
   };
+
+  const saveTrip = async (tripData: any) => {
+    try {
+      const response = await fetch(`${API_BASE}/trips_add.php`, {
+        method: 'POST',
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(tripData),
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const data = await response.json();
+      
+      if (data.success) {
+        // Show success indicator
+        setTripSaved(true);
+        setTimeout(() => setTripSaved(false), 3000); // Hide after 3 seconds
+        console.log('Trip saved successfully:', data.trip);
+      } else {
+        console.error('Failed to save trip:', data.error);
+      }
+    } catch (error) {
+      console.error('Error saving trip:', error);
+      // Don't show error to user - trip saving is secondary functionality
+    }
+  };
   
   const clearForm = () => {
     setDistance('');
@@ -209,6 +265,7 @@ export default function CalculatorScreen() {
     setVehicleQuery('');
     setSelectedVehicle(null);
     setResults(null);
+    setTripSaved(false);
     fadeAnim.setValue(0);
     slideAnim.setValue(50);
   };
@@ -224,6 +281,7 @@ export default function CalculatorScreen() {
     setVehicleQuery('');
     setSelectedVehicle(null);
     setResults(null);
+    setTripSaved(false);
     fadeAnim.setValue(0);
     slideAnim.setValue(50);
   };
@@ -238,6 +296,18 @@ export default function CalculatorScreen() {
             <Text style={styles.subtitle}>
               Calculate your fuel consumption and costs
             </Text>
+            {isFromMapRoute && (
+              <View style={styles.routeBadge}>
+                <Text style={styles.routeBadgeText}>
+                  📍 Route: {params.startName} → {params.endName}
+                </Text>
+                {currentUser && (
+                  <Text style={styles.routeBadgeSubtext}>
+                    This trip will be automatically saved
+                  </Text>
+                )}
+              </View>
+            )}
           </View>
           
           {/* Vehicle Search Section */}
@@ -466,6 +536,13 @@ export default function CalculatorScreen() {
                 </View>
               </View>
               
+              {/* Trip Saved Indicator */}
+              {tripSaved && (
+                <View style={styles.tripSavedIndicator}>
+                  <Text style={styles.tripSavedText}>✅ Trip saved to your travel history!</Text>
+                </View>
+              )}
+              
               {/* Quick Tips */}
               <View style={styles.tipsContainer}>
                 <Text style={styles.tipsTitle}>💡 Fuel Saving Tips</Text>
@@ -610,6 +687,26 @@ const styles = StyleSheet.create({
   header: {
     marginBottom: 32,
     paddingTop: 10,
+  },
+  routeBadge: {
+    backgroundColor: '#1E293B',
+    borderRadius: 12,
+    padding: 16,
+    marginTop: 16,
+    borderWidth: 1,
+    borderColor: '#4FD1C5',
+  },
+  routeBadgeText: {
+    color: '#4FD1C5',
+    fontSize: 14,
+    fontWeight: '600',
+    textAlign: 'center',
+    marginBottom: 4,
+  },
+  routeBadgeSubtext: {
+    color: '#94A3B8',
+    fontSize: 12,
+    textAlign: 'center',
   },
   title: {
     fontSize: 28,
@@ -884,6 +981,20 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#94A3B8',
     marginBottom: 4,
+  },
+  tripSavedIndicator: {
+    backgroundColor: '#065F46',
+    borderRadius: 8,
+    padding: 12,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: '#10B981',
+  },
+  tripSavedText: {
+    color: '#34D399',
+    fontSize: 14,
+    fontWeight: '600',
+    textAlign: 'center',
   },
   modalOverlay: {
     flex: 1,
