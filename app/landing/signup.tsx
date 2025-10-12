@@ -1,16 +1,16 @@
 import { useRouter } from "expo-router";
 import React, { useState } from "react";
 import {
-    Alert,
-    Image,
-    KeyboardAvoidingView,
-    Platform,
-    SafeAreaView,
-    ScrollView,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View,
+  Alert,
+  Image,
+  KeyboardAvoidingView,
+  Platform,
+  SafeAreaView,
+  ScrollView,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
 } from "react-native";
 import { useAuth } from "../../context/AuthContext";
 
@@ -130,55 +130,28 @@ export default function SignupScreen() {
         >
           {/* Dark Background Section with Grid Pattern */}
           <View
-            className="bg-gray-900 pt-12 pb-8 px-6 relative"
+            className="bg-gray-900 pt-8 sm:pt-12 pb-6 sm:pb-8 px-4 sm:px-6 relative"
             style={{
               backgroundImage:
                 Platform.OS === "web"
-                  ? "radial-gradient(circle at 1px 1px, rgba(255,255,255,0.08) 1px, transparent 0)"
+                  ? "linear-gradient(rgba(17, 24, 39, 0.95) 0%, rgba(17, 24, 39, 0.95) 100%), repeating-linear-gradient(0deg, rgba(255, 255, 255, 0.03) 0px, rgba(255, 255, 255, 0.03) 1px, transparent 1px, transparent 20px), repeating-linear-gradient(90deg, rgba(255, 255, 255, 0.03) 0px, rgba(255, 255, 255, 0.03) 1px, transparent 1px, transparent 20px)"
                   : undefined,
-              backgroundSize: Platform.OS === "web" ? "20px 20px" : undefined,
             }}
           >
-            {/* Main Radial Shine Effect - Top Right */}
-            {Platform.OS === "web" ? (
-              <View
-                className="absolute top-0 right-0"
-                style={
-                  {
-                    width: 500,
-                    height: 500,
-                    background:
-                      "radial-gradient(ellipse at top right, rgba(255, 255, 255, 0.08) 0%, rgba(255, 255, 255, 0.05) 25%, rgba(255, 255, 255, 0.03) 45%, rgba(255, 255, 255, 0.015) 65%, rgba(255, 255, 255, 0.008) 80%, transparent 100%)",
-                    transform: [{ translateX: 180 }, { translateY: -180 }],
-                  } as any
-                }
-              />
-            ) : (
-              <View
-                className="absolute top-0 right-0"
-                style={{
-                  width: 350,
-                  height: 350,
-                  backgroundColor: "rgba(255, 255, 255, 0.04)",
-                  borderRadius: 175,
-                  transform: [{ translateX: 120 }, { translateY: -120 }],
-                }}
-              />
-            )}
 
             {/* Header - Left Aligned */}
-            <View className="items-start mb-6">
-              <View className="flex-row items-center mb-4">
+            <View className="items-start mb-4 sm:mb-6">
+              <View className="flex-row items-center mb-3 sm:mb-4">
                 <Image
                   source={require("../../assets/logo.svg")}
-                  style={{ width: 32, height: 32, marginRight: 8 }}
+                  style={{ width: 28, height: 28, marginRight: 8 }}
                 />
                 <GradientText>FillTrip</GradientText>
               </View>
-              <Text className="text-white text-2xl font-bold mb-2">
+              <Text className="text-white text-xl sm:text-2xl font-bold mb-1.5 sm:mb-2">
                 Create your account
               </Text>
-              <Text className="text-gray-400 text-sm leading-5 max-w-sm">
+              <Text className="text-gray-400 text-xs sm:text-sm leading-5 max-w-sm">
                 Already have an account?{" "}
                 <Text
                   onPress={() => router.push("/landing/login")}
@@ -194,13 +167,13 @@ export default function SignupScreen() {
           <View
             className="flex-1 bg-white"
             style={{
-              borderTopLeftRadius: 24,
-              borderTopRightRadius: 24,
+              borderTopLeftRadius: 20,
+              borderTopRightRadius: 20,
               marginTop: -12,
             }}
           >
             {/* Tab Navigation */}
-            <View className="px-6 pt-6 mb-4">
+            <View className="px-4 sm:px-6 pt-4 sm:pt-6 mb-3 sm:mb-4">
               <View className="flex-row bg-gray-50 rounded-2xl p-1.5">
                 <TouchableOpacity
                   className={`flex-1 py-2.5 rounded-xl items-center ${
@@ -237,15 +210,15 @@ export default function SignupScreen() {
             </View>
 
             {/* Signup Form */}
-            <View className="px-6 space-y-3">
+            <View className="px-4 sm:px-6 space-y-2 sm:space-y-3">
               {/* First Name and Last Name */}
-              <View className="flex-row gap-3">
+              <View className="flex-row gap-2 sm:gap-3">
                 <View className="flex-1">
-                  <Text className="text-gray-700 mb-2 font-medium text-sm">
+                  <Text className="text-gray-700 mb-1.5 sm:mb-2 font-medium text-xs sm:text-sm">
                     First Name
                   </Text>
                   <TextInput
-                    className="bg-gray-50 text-gray-900 px-4 py-3 rounded-xl border border-gray-200 text-sm"
+                    className="bg-gray-50 text-gray-900 px-3 sm:px-4 py-2.5 sm:py-3 rounded-xl border border-gray-200 text-xs sm:text-sm"
                     placeholder="John"
                     placeholderTextColor="#9CA3AF"
                     value={firstName}
@@ -254,11 +227,11 @@ export default function SignupScreen() {
                   />
                 </View>
                 <View className="flex-1">
-                  <Text className="text-gray-700 mb-2 font-medium text-sm">
+                  <Text className="text-gray-700 mb-1.5 sm:mb-2 font-medium text-xs sm:text-sm">
                     Last Name
                   </Text>
                   <TextInput
-                    className="bg-gray-50 text-gray-900 px-4 py-3 rounded-xl border border-gray-200 text-sm"
+                    className="bg-gray-50 text-gray-900 px-3 sm:px-4 py-2.5 sm:py-3 rounded-xl border border-gray-200 text-xs sm:text-sm"
                     placeholder="Doe"
                     placeholderTextColor="#9CA3AF"
                     value={lastName}
@@ -270,11 +243,11 @@ export default function SignupScreen() {
 
               {/* Username */}
               <View>
-                <Text className="text-gray-700 mb-2 font-medium text-sm">
+                <Text className="text-gray-700 mb-1.5 sm:mb-2 font-medium text-xs sm:text-sm">
                   Username
                 </Text>
                 <TextInput
-                  className="bg-gray-50 text-gray-900 px-4 py-3 rounded-xl border border-gray-200 text-sm"
+                  className="bg-gray-50 text-gray-900 px-3 sm:px-4 py-2.5 sm:py-3 rounded-xl border border-gray-200 text-xs sm:text-sm"
                   placeholder="johndoe"
                   placeholderTextColor="#9CA3AF"
                   value={username}
@@ -286,11 +259,11 @@ export default function SignupScreen() {
 
               {/* Email */}
               <View>
-                <Text className="text-gray-700 mb-2 font-medium text-sm">
+                <Text className="text-gray-700 mb-1.5 sm:mb-2 font-medium text-xs sm:text-sm">
                   Email address
                 </Text>
                 <TextInput
-                  className="bg-gray-50 text-gray-900 px-4 py-3 rounded-xl border border-gray-200 text-sm"
+                  className="bg-gray-50 text-gray-900 px-3 sm:px-4 py-2.5 sm:py-3 rounded-xl border border-gray-200 text-xs sm:text-sm"
                   placeholder="john.doe@gmail.com"
                   placeholderTextColor="#9CA3AF"
                   value={email}
@@ -303,12 +276,12 @@ export default function SignupScreen() {
 
               {/* Password */}
               <View>
-                <Text className="text-gray-700 mb-2 font-medium text-sm">
+                <Text className="text-gray-700 mb-1.5 sm:mb-2 font-medium text-xs sm:text-sm">
                   Password
                 </Text>
                 <View className="relative">
                   <TextInput
-                    className="bg-gray-50 text-gray-900 px-4 py-3 rounded-xl border border-gray-200 text-sm pr-12"
+                    className="bg-gray-50 text-gray-900 px-3 sm:px-4 py-2.5 sm:py-3 rounded-xl border border-gray-200 text-xs sm:text-sm pr-11 sm:pr-12"
                     placeholder="••••••••"
                     placeholderTextColor="#9CA3AF"
                     value={password}
@@ -316,7 +289,7 @@ export default function SignupScreen() {
                     secureTextEntry={!showPassword}
                   />
                   <TouchableOpacity
-                    className="absolute right-4 top-3"
+                    className="absolute right-3 sm:right-4 top-2.5 sm:top-3"
                     onPress={() => setShowPassword(!showPassword)}
                   >
                     <Image
@@ -325,7 +298,7 @@ export default function SignupScreen() {
                           ? require("../../assets/hide.png")
                           : require("../../assets/unhide.png")
                       }
-                      style={{ width: 20, height: 20 }}
+                      style={{ width: 18, height: 18 }}
                       resizeMode="contain"
                     />
                   </TouchableOpacity>
@@ -333,60 +306,60 @@ export default function SignupScreen() {
               </View>
 
               {/* Spacer */}
-              <View style={{ height: 4 }} />
+              <View style={{ height: 2 }} />
 
               {/* Sign Up Button */}
               <TouchableOpacity
-                className={`py-3.5 rounded-xl items-center ${
+                className={`py-3 sm:py-3.5 rounded-xl items-center ${
                   loading ? "bg-teal-400" : "bg-teal-500"
                 }`}
                 onPress={handleSignup}
                 disabled={loading}
               >
-                <Text className="text-white text-base font-semibold">
+                <Text className="text-white text-sm sm:text-base font-semibold">
                   {loading ? "Creating Account..." : "Sign up"}
                 </Text>
               </TouchableOpacity>
 
               {/* Divider */}
-              <View className="flex-row items-center my-5">
+              <View className="flex-row items-center my-4 sm:my-5">
                 <View className="flex-1 h-px bg-gray-200" />
-                <Text className="mx-4 text-gray-400 text-sm">Or</Text>
+                <Text className="mx-3 sm:mx-4 text-gray-400 text-xs sm:text-sm">Or</Text>
                 <View className="flex-1 h-px bg-gray-200" />
               </View>
 
               {/* Social Login Buttons */}
-              <View className="flex-row gap-3 mb-8">
+              <View className="flex-row gap-2 sm:gap-3 mb-6 sm:mb-8">
                 <TouchableOpacity
-                  className="flex-1 flex-row items-center justify-center py-3 border border-gray-200 rounded-xl bg-white"
+                  className="flex-1 flex-row items-center justify-center py-2.5 sm:py-3 border border-gray-200 rounded-xl bg-white"
                   onPress={() => handleSocialLogin("Google")}
                 >
                   <Image
                     source={require("../../assets/google.png")}
                     style={{
-                      width: 18,
-                      height: 18,
-                      marginRight: 8,
+                      width: 16,
+                      height: 16,
+                      marginRight: 6,
                     }}
                   />
-                  <Text className="text-gray-700 font-medium text-sm">
+                  <Text className="text-gray-700 font-medium text-xs sm:text-sm">
                     Google
                   </Text>
                 </TouchableOpacity>
 
                 <TouchableOpacity
-                  className="flex-1 flex-row items-center justify-center py-3 border border-gray-200 rounded-xl bg-white"
+                  className="flex-1 flex-row items-center justify-center py-2.5 sm:py-3 border border-gray-200 rounded-xl bg-white"
                   onPress={() => handleSocialLogin("Facebook")}
                 >
                   <Image
                     source={require("../../assets/facebook.png")}
                     style={{
-                      width: 18,
-                      height: 18,
-                      marginRight: 8,
+                      width: 16,
+                      height: 16,
+                      marginRight: 6,
                     }}
                   />
-                  <Text className="text-gray-700 font-medium text-sm">
+                  <Text className="text-gray-700 font-medium text-xs sm:text-sm">
                     Facebook
                   </Text>
                 </TouchableOpacity>

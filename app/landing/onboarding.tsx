@@ -1,14 +1,14 @@
 import { useRouter } from 'expo-router';
 import React, { useRef, useState } from 'react';
 import {
-  Animated,
-  Dimensions,
-  Image,
-  Platform,
-  ScrollView,
-  Text,
-  TouchableOpacity,
-  View
+    Animated,
+    Dimensions,
+    Image,
+    Platform,
+    ScrollView,
+    Text,
+    TouchableOpacity,
+    View
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -73,8 +73,7 @@ export default function OnboardingScreen() {
           className="absolute inset-0 bg-gray-900"
           style={{
             backgroundImage: Platform.OS === 'web' ? 
-              'radial-gradient(circle at 1px 1px, rgba(255,255,255,0.08) 1px, transparent 0)' : undefined,
-            backgroundSize: Platform.OS === 'web' ? '20px 20px' : undefined,
+              'linear-gradient(rgba(17, 24, 39, 0.95) 0%, rgba(17, 24, 39, 0.95) 100%), repeating-linear-gradient(0deg, rgba(255, 255, 255, 0.03) 0px, rgba(255, 255, 255, 0.03) 1px, transparent 1px, transparent 20px), repeating-linear-gradient(90deg, rgba(255, 255, 255, 0.03) 0px, rgba(255, 255, 255, 0.03) 1px, transparent 1px, transparent 20px)' : undefined,
           }}
         />
 
@@ -87,17 +86,17 @@ export default function OnboardingScreen() {
           scrollEventThrottle={16}
         >
           {onboardingData.map((item, index) => (
-            <View key={index} style={{ width }} className="flex-1 px-8">
-              <View className="flex-1 items-center" style={{ paddingTop: 180 }}>
+            <View key={index} style={{ width }} className="flex-1 px-6 sm:px-8">
+              <View className="flex-1 items-center" style={{ paddingTop: 120 }}>
                 <Image 
                   source={item.image}
-                  style={{ width: 120, height: 120, marginBottom: 120 }}
+                  style={{ width: 100, height: 100, marginBottom: 80 }}
                   resizeMode="contain"
                 />
-                <Text className="text-white text-3xl font-bold text-center mb-8">
+                <Text className="text-white text-2xl sm:text-3xl font-bold text-center mb-6 sm:mb-8 px-2">
                   {item.title}
                 </Text>
-                <Text className="text-gray-300 text-lg text-center leading-7 max-w-sm px-4">
+                <Text className="text-gray-300 text-base sm:text-lg text-center leading-6 sm:leading-7 max-w-sm px-4">
                   {item.description}
                 </Text>
               </View>
@@ -105,7 +104,7 @@ export default function OnboardingScreen() {
           ))}
         </ScrollView>
 
-        <View className="flex-row justify-center mb-12">
+        <View className="flex-row justify-center mb-8 sm:mb-12">
           {onboardingData.map((_, index) => (
             <View
               key={index}
@@ -116,23 +115,23 @@ export default function OnboardingScreen() {
           ))}
         </View>
 
-        <View className="flex-row justify-between items-center px-8 pb-12">
+        <View className="flex-row justify-between items-center px-6 sm:px-8 pb-8 sm:pb-12">
           <TouchableOpacity
             onPress={handleSkip}
-            className="py-4 px-6"
+            className="py-3 sm:py-4 px-4 sm:px-6"
           >
-            <Text className="text-gray-400 text-lg">Skip</Text>
+            <Text className="text-gray-400 text-base sm:text-lg">Skip</Text>
           </TouchableOpacity>
 
           <TouchableOpacity
             onPress={handleNext}
-            className={`${currentIndex === onboardingData.length - 1 ? 'bg-teal-500 px-6 py-3 rounded-xl' : 'bg-teal-500 w-12 h-12 rounded-full'} items-center justify-center`}
+            className={`${currentIndex === onboardingData.length - 1 ? 'bg-teal-500 px-5 sm:px-6 py-2.5 sm:py-3 rounded-xl' : 'bg-teal-500 w-11 h-11 sm:w-12 sm:h-12 rounded-full'} items-center justify-center`}
           >
             {currentIndex === onboardingData.length - 1 ? (
-              <Text className="text-white text-lg font-semibold">Let&apos;s Go</Text>
+              <Text className="text-white text-base sm:text-lg font-semibold">Let&apos;s Go</Text>
             ) : (
               <View className="absolute inset-0 items-center justify-center">
-                <Text className="text-white text-lg font-bold" style={{ marginTop: -2 }}>{'>'}</Text>
+                <Text className="text-white text-lg sm:text-xl font-bold" style={{ marginTop: -2 }}>{'>'}</Text>
               </View>
             )}
           </TouchableOpacity>

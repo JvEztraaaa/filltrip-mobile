@@ -1,6 +1,7 @@
 import { Stack } from "expo-router";
 import "react-native-reanimated";
 import { AuthProvider } from "../context/AuthContext";
+import "../global.css";
 
 export default function RootLayout() {
   return (
