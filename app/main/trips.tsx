@@ -1,14 +1,15 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import {
-    Alert,
-    Dimensions,
-    RefreshControl,
-    SafeAreaView,
-    ScrollView,
-    StyleSheet,
-    Text,
-    TouchableOpacity,
-    View
+  Alert,
+  Dimensions,
+  Image,
+  RefreshControl,
+  SafeAreaView,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View
 } from 'react-native';
 import Animated, { FadeInDown, FadeOutUp } from 'react-native-reanimated';
 import { useAuth } from '../../context/AuthContext';
@@ -48,6 +49,7 @@ export default function TripsScreen() {
   const [isLoading, setIsLoading] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [hasError, setHasError] = useState(false);
+  const [expandedMonths, setExpandedMonths] = useState<Set<string>>(new Set([new Date().toISOString().slice(0, 7)]));
   const [totalStats, setTotalStats] = useState({
     totalDistance: 0,
     totalTrips: 0,
@@ -258,6 +260,18 @@ export default function TripsScreen() {
     loadTrips(true);
   };
 
+  const toggleMonth = (monthKey: string) => {
+    setExpandedMonths(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(monthKey)) {
+        newSet.delete(monthKey);
+      } else {
+        newSet.add(monthKey);
+      }
+      return newSet;
+    });
+  };
+
   if (!currentUser) {
     return (
       <SafeAreaView style={styles.container}>
@@ -278,24 +292,12 @@ export default function TripsScreen() {
   return (
     <SafeAreaView style={styles.container}>
       <AnimatedPageContainer>
-        {/* Header with Export Button */}
-        <View style={styles.headerContainer}>
-          <View style={styles.headerText}>
-            <Text style={styles.title}>My Trips</Text>
-            <Text style={styles.subtitle}>
-              Track your journeys and explore your travel patterns over time
-            </Text>
-          </View>
-          
-          {totalStats.totalTrips > 0 && (
-            <TouchableOpacity 
-              style={styles.exportButton}
-              onPress={() => Alert.alert('Export', 'Export functionality coming soon!')}
-              activeOpacity={0.8}
-            >
-              <Text style={styles.exportButtonText}>📄 Export</Text>
-            </TouchableOpacity>
-          )}
+        {/* Header */}
+        <View style={styles.header}>
+          <Text style={styles.title}>My Trips</Text>
+          <Text style={styles.subtitle}>
+            Track your journeys and explore your travel patterns over time
+          </Text>
         </View>
 
         {/* Stats Overview */}
@@ -362,44 +364,51 @@ export default function TripsScreen() {
                 entering={FadeInDown.duration(300).delay(groupIndex * 100)}
                 style={styles.monthGroup}
               >
-                {/* Month Header */}
-                <View style={styles.monthHeader}>
-                  <Text style={styles.monthTitle}>{group.label}</Text>
-                  <View style={styles.monthStats}>
+                {/* Month Header - Clickable */}
+                <TouchableOpacity 
+                  style={styles.monthHeader}
+                  onPress={() => toggleMonth(group.key)}
+                  activeOpacity={0.7}
+                >
+                  <View style={styles.monthHeaderContent}>
+                    <Text style={styles.monthTitle}>{group.label}</Text>
                     <Text style={styles.monthStatsText}>
-                      {group.totalTrips} trip{group.totalTrips !== 1 ? 's' : ''} • {safeNumber(group.totalDistance).toFixed(0)} km total
+                      {group.totalTrips} trip{group.totalTrips !== 1 ? 's' : ''} • {safeNumber(group.totalDistance).toFixed(0)} km
                     </Text>
                   </View>
-                </View>
+                  <Text style={styles.expandIcon}>
+                    {expandedMonths.has(group.key) ? '▼' : '▶'}
+                  </Text>
+                </TouchableOpacity>
 
-                {/* Trip Items */}
-                {(group.items || []).filter(trip => trip && typeof trip === 'object').map((trip, tripIndex) => (
+                {/* Trip Items - Conditionally rendered */}
+                {expandedMonths.has(group.key) && (group.items || []).filter(trip => trip && typeof trip === 'object').map((trip, tripIndex) => (
                   <Animated.View
                     key={trip.id}
                     entering={FadeInDown.duration(200).delay((groupIndex * 100) + (tripIndex * 50))}
                     exiting={FadeOutUp.duration(200)}
                     style={styles.tripCard}
                   >
-                    {tripIndex === 0 && (
-                      <View style={styles.latestTripBadge}>
-                        <Text style={styles.latestTripText}>Latest Trip</Text>
-                      </View>
-                    )}
+
                     
                     {/* Route Info */}
                     <View style={styles.routeInfo}>
-                      <Text style={styles.routeLocation}>{trip.startLocationName}</Text>
+                      <Text style={styles.routeLocation} numberOfLines={1} ellipsizeMode="tail">
+                        {trip.startLocationName.length > 20 ? trip.startLocationName.substring(0, 20) + '...' : trip.startLocationName}
+                      </Text>
                       <Text style={styles.routeArrow}>→</Text>
-                      <Text style={styles.routeLocation}>{trip.endLocationName}</Text>
+                      <Text style={styles.routeLocation} numberOfLines={1} ellipsizeMode="tail">
+                        {trip.endLocationName.length > 20 ? trip.endLocationName.substring(0, 20) + '...' : trip.endLocationName}
+                      </Text>
                     </View>
 
                     {/* Trip Details */}
                     <View style={styles.tripDetails}>
                       <Text style={styles.tripDate}>{formatDate(trip.createdAt)}</Text>
                       {trip.vehicleLabel && (
-                        <Text style={styles.tripVehicle}>🚗 {trip.vehicleLabel}</Text>
+                        <Text style={styles.tripVehicle}>Vehicle: {trip.vehicleLabel}</Text>
                       )}
-                      <Text style={styles.tripFuel}>⛽ {trip.fuelType || 'Gasoline'}</Text>
+                      <Text style={styles.tripFuel}>Fuel: {trip.fuelType || 'Gasoline'}</Text>
                     </View>
 
                     {/* Trip Metrics */}
@@ -426,7 +435,10 @@ export default function TripsScreen() {
                       onPress={() => confirmDeleteTrip(trip)}
                       activeOpacity={0.7}
                     >
-                      <Text style={styles.deleteButtonText}>🗑️</Text>
+                      <Image 
+                        source={require('../../assets/delete.png')} 
+                        style={styles.deleteIcon}
+                      />
                     </TouchableOpacity>
                   </Animated.View>
                 ))}
@@ -449,87 +461,57 @@ const styles = StyleSheet.create({
   },
   header: {
     paddingHorizontal: 20,
-    paddingTop: 60,
-    paddingBottom: 16,
-  },
-  headerContainer: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    justifyContent: 'space-between',
-    paddingHorizontal: 20,
-    paddingTop: 60,
-    paddingBottom: 16,
-  },
-  headerText: {
-    flex: 1,
-    marginRight: 16,
-  },
-  exportButton: {
-    backgroundColor: '#4FD1C5',
-    borderRadius: 8,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginTop: 4,
-  },
-  exportButtonText: {
-    color: '#0F172A',
-    fontSize: 14,
-    fontWeight: '600',
+    paddingTop: 80,
+    paddingBottom: 24,
   },
   title: {
-    fontSize: 28,
-    fontWeight: '700',
-    color: '#FFFFFF',
-    marginBottom: 8,
+    fontSize: 32,
+    fontWeight: '800',
+    color: '#F1F5F9',
+    marginBottom: 12,
   },
   subtitle: {
     fontSize: 16,
     color: '#94A3B8',
     lineHeight: 24,
+    fontWeight: '500',
   },
   statsContainer: {
-    backgroundColor: 'rgba(30, 41, 59, 0.8)',
-    borderRadius: 20,
-    padding: 24,
+    backgroundColor: '#1E293B',
+    borderRadius: 12,
+    padding: 16,
     marginHorizontal: 20,
-    marginBottom: 24,
+    marginBottom: 20,
     flexDirection: 'row',
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: 'rgba(79, 209, 197, 0.2)',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.25,
-    shadowRadius: 20,
-    elevation: 10,
+    borderColor: '#334155',
   },
   statItem: {
     flex: 1,
     alignItems: 'center',
   },
   statValue: {
-    fontSize: 24,
-    fontWeight: 'bold',
+    fontSize: 20,
+    fontWeight: '700',
     color: '#4FD1C5',
-    marginBottom: 4,
+    marginBottom: 2,
   },
   statLabel: {
-    fontSize: 12,
+    fontSize: 11,
     color: '#94A3B8',
-    fontWeight: '600',
+    fontWeight: '500',
   },
   statSeparator: {
     width: 1,
-    height: 40,
-    backgroundColor: '#475569',
-    marginHorizontal: 16,
+    height: 30,
+    backgroundColor: '#334155',
+    marginHorizontal: 12,
   },
   scrollView: {
     flex: 1,
     paddingHorizontal: 20,
-    paddingTop: 40,
+    paddingTop: 16,
   },
   loadingContainer: {
     paddingVertical: 60,
@@ -562,25 +544,29 @@ const styles = StyleSheet.create({
     lineHeight: 24,
   },
   monthGroup: {
-    marginBottom: 32,
+    marginBottom: 16,
   },
   monthHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: 16,
+    marginBottom: 12,
     paddingHorizontal: 4,
+    paddingVertical: 8,
+  },
+  monthHeaderContent: {
+    flex: 1,
   },
   monthTitle: {
     fontSize: 18,
     fontWeight: '600',
     color: '#4FD1C5',
+    marginBottom: 4,
   },
-  monthStats: {
-    backgroundColor: '#334155',
-    borderRadius: 12,
-    paddingHorizontal: 10,
-    paddingVertical: 4,
+  expandIcon: {
+    fontSize: 16,
+    color: '#94A3B8',
+    marginLeft: 12,
   },
   monthStatsText: {
     fontSize: 12,
@@ -591,6 +577,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(30, 41, 59, 0.6)',
     borderRadius: 20,
     padding: 20,
+    paddingRight: 50, // Add extra padding to prevent delete button overlap
     marginBottom: 16,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 8 },
@@ -601,21 +588,7 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(79, 209, 197, 0.1)',
     position: 'relative',
   },
-  latestTripBadge: {
-    position: 'absolute',
-    top: -6,
-    right: 16,
-    backgroundColor: '#4FD1C5',
-    borderRadius: 12,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    zIndex: 1,
-  },
-  latestTripText: {
-    fontSize: 10,
-    fontWeight: '600',
-    color: '#0F172A',
-  },
+
   routeInfo: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -668,6 +641,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     gap: 16,
+    marginRight: -25, // Offset for delete button to center the metrics
   },
   metricItem: {
     flex: 1,
@@ -690,17 +664,19 @@ const styles = StyleSheet.create({
   },
   deleteButton: {
     position: 'absolute',
-    top: 12,
-    right: 12,
-    width: 32,
-    height: 32,
-    borderRadius: 16,
+    top: 8,
+    right: 8,
+    width: 28,
+    height: 28,
+    borderRadius: 6,
     backgroundColor: '#DC2626',
     alignItems: 'center',
     justifyContent: 'center',
   },
-  deleteButtonText: {
-    fontSize: 16,
+  deleteIcon: {
+    width: 14,
+    height: 14,
+    tintColor: '#FFFFFF',
   },
   bottomPadding: {
     height: 40,

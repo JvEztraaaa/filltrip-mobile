@@ -2,6 +2,7 @@ import React, { useContext, useState } from 'react';
 import {
     ActivityIndicator,
     Alert,
+    Image,
     SafeAreaView,
     ScrollView,
     StyleSheet,
@@ -14,7 +15,24 @@ import { AuthContext } from '../../context/AuthContext';
 import AnimatedPageContainer from '../components/AnimatedPageContainer';
 import BottomNavBar from '../components/BottomNavBar';
 
+type ViewType = 'menu' | 'account-settings';
 type TabType = 'profile' | 'security';
+
+interface MenuItem {
+  id: string;
+  title: string;
+  icon: any;
+  isLogout?: boolean;
+}
+
+const menuItems: MenuItem[] = [
+  { id: 'account-settings', title: 'Account Settings', icon: require('../../assets/setting.png') },
+  { id: 'about', title: 'About Us', icon: require('../../assets/about.png') },
+  { id: 'faq', title: 'FAQ', icon: require('../../assets/faq.png') },
+  { id: 'rate', title: 'Rate Us', icon: require('../../assets/rate.png') },
+  { id: 'privacy', title: 'Privacy Policy', icon: require('../../assets/about.png') },
+  { id: 'logout', title: 'Logout', icon: require('../../assets/logout.png'), isLogout: true },
+];
 
 export default function ProfileScreen() {
   const context = useContext(AuthContext);
@@ -22,6 +40,7 @@ export default function ProfileScreen() {
     throw new Error('ProfileScreen must be used within an AuthProvider');
   }
   const { currentUser, logout } = context;
+  const [currentView, setCurrentView] = useState<ViewType>('menu');
   const [activeTab, setActiveTab] = useState<TabType>('profile');
   const [saving, setSaving] = useState(false);
   const [notice, setNotice] = useState('');
@@ -297,44 +316,103 @@ export default function ProfileScreen() {
     </View>
   );
 
+  const handleMenuItemPress = (item: MenuItem) => {
+    if (item.isLogout) {
+      handleLogout();
+    } else if (item.id === 'account-settings') {
+      setCurrentView('account-settings');
+    } else {
+      // Handle other menu items (About Us, FAQ, etc.)
+      Alert.alert('Coming Soon', `${item.title} will be available in future updates.`);
+    }
+  };
+
+  const renderSettingsMenu = () => (
+    <View style={styles.menuContainer}>
+      {/* Header */}
+      <View style={styles.header}>
+        <Text style={styles.title}>Settings</Text>
+      </View>
+
+      {/* Menu Items */}
+      <View style={styles.menuList}>
+        {menuItems.map((item) => (
+          <TouchableOpacity
+            key={item.id}
+            style={[styles.menuItem, item.isLogout && styles.logoutMenuItem]}
+            onPress={() => handleMenuItemPress(item)}
+            activeOpacity={0.7}
+          >
+            <View style={styles.menuItemContent}>
+              <Image source={item.icon} style={[styles.menuIcon, item.isLogout && styles.logoutIcon]} />
+              <Text style={[styles.menuItemText, item.isLogout && styles.logoutText]}>
+                {item.title}
+              </Text>
+            </View>
+            <Text style={[styles.menuArrow, item.isLogout && styles.logoutArrow]}>›</Text>
+          </TouchableOpacity>
+        ))}
+      </View>
+    </View>
+  );
+
+  const renderAccountSettings = () => (
+    <View>
+      {/* Header with Back Button */}
+      <View style={styles.header}>
+        <TouchableOpacity
+          style={styles.backButton}
+          onPress={() => setCurrentView('menu')}
+          activeOpacity={0.7}
+        >
+          <Text style={styles.backButtonText}>‹ Back</Text>
+        </TouchableOpacity>
+        <Text style={styles.title}>Account Settings</Text>
+        <View style={styles.headerSpacer} />
+      </View>
+
+      {/* Tabs */}
+      <View style={styles.tabsContainer}>
+        <TabButton tab="profile" title="Profile" />
+        <TabButton tab="security" title="Security" />
+      </View>
+
+      {/* Notification Message */}
+      {notice && (
+        <View style={styles.noticeContainer}>
+          <Text style={styles.noticeText}>{notice}</Text>
+        </View>
+      )}
+
+      {error && (
+        <View style={styles.errorContainer}>
+          <Text style={styles.errorText}>{error}</Text>
+        </View>
+      )}
+
+      {/* Tab Content */}
+      {activeTab === 'profile' ? renderProfileTab() : renderSecurityTab()}
+    </View>
+  );
+
+  if (currentView === 'menu') {
+    return (
+      <SafeAreaView style={styles.container}>
+        <AnimatedPageContainer>
+          <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
+            {renderSettingsMenu()}
+          </ScrollView>
+        </AnimatedPageContainer>
+        <BottomNavBar />
+      </SafeAreaView>
+    );
+  }
+
   return (
     <SafeAreaView style={styles.container}>
       <AnimatedPageContainer>
         <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
-          {/* Header */}
-          <View style={styles.header}>
-            <Text style={styles.title}>Account Settings</Text>
-            <TouchableOpacity
-              style={styles.logoutButton}
-              onPress={handleLogout}
-            >
-              <Text style={styles.logoutButtonText}>Logout</Text>
-            </TouchableOpacity>
-          </View>
-
-          {/* Tabs */}
-          <View style={styles.tabsContainer}>
-            <TabButton tab="profile" title="Profile" />
-            <TabButton tab="security" title="Security" />
-          </View>
-
-          {/* Notification Message */}
-          {(notice || error) && (
-            <View style={[
-              styles.messageContainer,
-              error ? styles.errorContainer : styles.successContainer
-            ]}>
-              <Text style={[
-                styles.messageText,
-                error ? styles.errorText : styles.successText
-              ]}>
-                {notice || error}
-              </Text>
-            </View>
-          )}
-
-          {/* Tab Content */}
-          {activeTab === 'profile' ? renderProfileTab() : renderSecurityTab()}
+          {renderAccountSettings()}
         </ScrollView>
       </AnimatedPageContainer>
       <BottomNavBar activeTab="profile" />
@@ -345,7 +423,7 @@ export default function ProfileScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#1E293B',
+    backgroundColor: '#0F172A',
   },
   scrollView: {
     flex: 1,
@@ -355,13 +433,14 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingHorizontal: 20,
-    paddingTop: 20,
+    paddingTop: 80,
     paddingBottom: 16,
   },
   title: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: '#FFFFFF',
+    fontSize: 32,
+    fontWeight: '800',
+    color: '#F1F5F9',
+    marginBottom: 12,
   },
   logoutButton: {
     paddingHorizontal: 16,
@@ -464,5 +543,83 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 16,
     fontWeight: '600',
+  },
+  // Menu Styles
+  menuContainer: {
+    flex: 1,
+  },
+  menuList: {
+    paddingHorizontal: 20,
+    paddingTop: 20,
+  },
+  menuItem: {
+    backgroundColor: '#1E293B',
+    borderRadius: 12,
+    paddingVertical: 16,
+    paddingHorizontal: 20,
+    marginBottom: 12,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#334155',
+  },
+  logoutMenuItem: {
+    backgroundColor: 'rgba(220, 38, 38, 0.1)',
+    borderColor: 'rgba(220, 38, 38, 0.3)',
+  },
+  menuItemContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  menuIcon: {
+    width: 24,
+    height: 24,
+    marginRight: 12,
+    tintColor: '#E2E8F0',
+  },
+  logoutIcon: {
+    tintColor: '#DC2626',
+  },
+  menuItemText: {
+    fontSize: 16,
+    fontWeight: '500',
+    color: '#E2E8F0',
+  },
+  logoutText: {
+    color: '#DC2626',
+  },
+  menuArrow: {
+    fontSize: 20,
+    color: '#94A3B8',
+  },
+  logoutArrow: {
+    color: '#DC2626',
+  },
+  backButton: {
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+  },
+  backButtonText: {
+    fontSize: 16,
+    color: '#4FD1C5',
+    fontWeight: '500',
+  },
+  headerSpacer: {
+    width: 50,
+  },
+  noticeContainer: {
+    marginHorizontal: 20,
+    marginBottom: 16,
+    padding: 12,
+    borderRadius: 8,
+    backgroundColor: 'rgba(6, 78, 59, 0.3)',
+    borderWidth: 1,
+    borderColor: 'rgba(13, 148, 136, 0.5)',
+  },
+  noticeText: {
+    fontSize: 14,
+    color: '#10B981',
+    textAlign: 'center',
   },
 });

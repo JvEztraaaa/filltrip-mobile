@@ -347,24 +347,7 @@ export default function CalculatorScreen() {
                 </TouchableOpacity>
               </View>
               
-              {showVehicleDropdown && vehicleOptions.length > 0 && (
-                <View style={styles.vehicleDropdownOverlay}>
-                  {vehicleOptions.slice(0, 3).map((vehicle) => (
-                    <TouchableOpacity
-                      key={vehicle.id}
-                      style={styles.dropdownItem}
-                      onPress={() => handleVehicleSelect(vehicle)}
-                    >
-                      <Text style={styles.dropdownItemText}>
-                        {vehicle.typicalYears.split('-')[0]} {vehicle.make} {vehicle.model}
-                      </Text>
-                      <Text style={styles.dropdownItemSubtext}>
-                        {vehicle.kmPerLiterAvg} km/L • {vehicle.category}
-                      </Text>
-                    </TouchableOpacity>
-                  ))}
-                </View>
-              )}
+
             </View>
           </View>
           
@@ -553,6 +536,26 @@ export default function CalculatorScreen() {
             </Animated.View>
           )}
         </ScrollView>
+        
+        {/* Vehicle Dropdown Overlay - Outside ScrollView to prevent clipping */}
+        {showVehicleDropdown && vehicleOptions.length > 0 && (
+          <View style={styles.vehicleDropdownOverlay}>
+            {vehicleOptions.slice(0, 3).map((vehicle) => (
+              <TouchableOpacity
+                key={vehicle.id}
+                style={styles.dropdownItem}
+                onPress={() => handleVehicleSelect(vehicle)}
+              >
+                <Text style={styles.dropdownItemText}>
+                  {vehicle.typicalYears.split('-')[0]} {vehicle.make} {vehicle.model}
+                </Text>
+                <Text style={styles.dropdownItemSubtext}>
+                  {vehicle.kmPerLiterAvg} km/L • {vehicle.category}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        )}
         
         {/* Modals for dropdowns */}
         {/* Distance Unit Modal */}
@@ -756,6 +759,7 @@ const styles = StyleSheet.create({
   vehicleSearchContainer: {
     position: 'relative',
     marginBottom: 16,
+    zIndex: 10000,
   },
   searchInputRow: {
     flexDirection: 'row',
@@ -856,20 +860,19 @@ const styles = StyleSheet.create({
   },
   vehicleDropdownOverlay: {
     position: 'absolute',
-    top: '100%',
-    left: 0,
-    right: 0,
+    top: 280, // Position below the search input (adjusted for better positioning)
+    left: 20,
+    right: 20,
     backgroundColor: '#1E293B',
     borderWidth: 1,
     borderColor: '#475569',
     borderRadius: 12,
-    marginTop: 4,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
     shadowRadius: 8,
-    elevation: 15,
-    zIndex: 9999,
+    elevation: 50,
+    zIndex: 99999,
   },
   dropdownItem: {
     padding: 12,

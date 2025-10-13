@@ -1,3 +1,4 @@
+import { router } from 'expo-router';
 import React, { createContext, ReactNode, useContext, useEffect, useState } from 'react';
 import { Platform } from 'react-native';
 import { API_BASE } from '../src/config/api';
@@ -231,6 +232,8 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
       await fetchJSON(`${API_BASE}/logout.php`, { method: 'POST' });
     } finally {
       setCurrentUser(null);
+      // Navigate to login page after logout
+      router.replace('/landing/login');
     }
   };
 

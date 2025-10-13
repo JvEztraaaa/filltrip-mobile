@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useState } from 'react';
 import {
   Alert,
   Dimensions,
+  Image,
   Modal,
   RefreshControl,
   SafeAreaView,
@@ -51,6 +52,7 @@ export default function LogsScreen() {
   const [isLoading, setIsLoading] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [expandedMonths, setExpandedMonths] = useState<Set<string>>(new Set([new Date().toISOString().slice(0, 7)]));
   const [totalStats, setTotalStats] = useState({
     totalEntries: 0,
     totalCost: 0,
@@ -312,6 +314,18 @@ export default function LogsScreen() {
     return `${symbols[safeCurrency] || safeCurrency}${safeAmount.toFixed(2)}`;
   };
 
+  const toggleMonth = (monthKey: string) => {
+    setExpandedMonths(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(monthKey)) {
+        newSet.delete(monthKey);
+      } else {
+        newSet.add(monthKey);
+      }
+      return newSet;
+    });
+  };
+
   const safeNumber = (value: any, defaultValue: number = 0): number => {
     const num = typeof value === 'number' ? value : parseFloat(value);
     return !isNaN(num) ? num : defaultValue;
@@ -357,25 +371,24 @@ export default function LogsScreen() {
   return (
     <SafeAreaView style={styles.container}>
       <AnimatedPageContainer>
-        {/* Header with Add Button */}
-        <View style={styles.headerContainer}>
-          <View style={styles.headerText}>
+        {/* Header */}
+        <View style={styles.header}>
+          <View style={styles.headerRow}>
             <Text style={styles.title}>Fuel History</Text>
-            <Text style={styles.subtitle}>
-              Keep track of every fuel-up to monitor your vehicle's consumption patterns and fuel costs over time
-            </Text>
+            <TouchableOpacity 
+              style={styles.addButton}
+              onPress={() => setIsAddModalOpen(true)}
+              activeOpacity={0.8}
+            >
+              <Text style={styles.addButtonText}>+ Add Entry</Text>
+            </TouchableOpacity>
           </View>
-          
-          <TouchableOpacity 
-            style={styles.addButton}
-            onPress={() => setIsAddModalOpen(true)}
-            activeOpacity={0.8}
-          >
-            <Text style={styles.addButtonText}>+ Add Entry</Text>
-          </TouchableOpacity>
+          <Text style={styles.subtitle}>
+            Keep track of every fuel-up to monitor your vehicle's consumption patterns and fuel costs over time
+          </Text>
         </View>
 
-        {/* Stats Overview */}
+        {/* Stats Container */}
         {totalStats.totalEntries > 0 && (
           <Animated.View 
             entering={FadeInDown.duration(300)}
@@ -432,30 +445,31 @@ export default function LogsScreen() {
                 entering={FadeInDown.duration(300).delay(groupIndex * 100)}
                 style={styles.monthGroup}
               >
-                {/* Month Header */}
-                <View style={styles.monthHeader}>
-                  <Text style={styles.monthTitle}>{group.label}</Text>
-                  <View style={styles.monthStats}>
+                {/* Month Header - Clickable */}
+                <TouchableOpacity 
+                  style={styles.monthHeader}
+                  onPress={() => toggleMonth(group.key)}
+                  activeOpacity={0.7}
+                >
+                  <View style={styles.monthHeaderContent}>
+                    <Text style={styles.monthTitle}>{group.label}</Text>
                     <Text style={styles.monthStatsText}>
                       {group.totalEntries} entr{group.totalEntries !== 1 ? 'ies' : 'y'} • {safeNumber(group.totalLiters).toFixed(1)} L • {formatCurrency(group.totalCost, 'PHP')}
                     </Text>
                   </View>
-                </View>
+                  <Text style={styles.expandIcon}>
+                    {expandedMonths.has(group.key) ? '▼' : '▶'}
+                  </Text>
+                </TouchableOpacity>
 
-                {/* Entry Items */}
-                {(group.items || []).filter(entry => entry && typeof entry === 'object').map((entry, entryIndex) => (
+                {/* Entry Items - Conditionally rendered */}
+                {expandedMonths.has(group.key) && (group.items || []).filter(entry => entry && typeof entry === 'object').map((entry, entryIndex) => (
                   <Animated.View
                     key={entry.id}
                     entering={FadeInDown.duration(200).delay((groupIndex * 100) + (entryIndex * 50))}
                     exiting={FadeOutUp.duration(200)}
                     style={styles.entryCard}
                   >
-                    {entryIndex === 0 && (
-                      <View style={styles.latestEntryBadge}>
-                        <Text style={styles.latestEntryText}>Latest</Text>
-                      </View>
-                    )}
-                    
                     {/* Vehicle Info */}
                     <View style={styles.vehicleInfo}>
                       <Text style={styles.vehicleName}>{entry.vehicleName}</Text>
@@ -464,10 +478,10 @@ export default function LogsScreen() {
 
                     {/* Entry Details */}
                     <View style={styles.entryDetails}>
-                      <Text style={styles.entryOdometer}>📍 {safeNumber(entry.odometerKm).toFixed(0)} {entry.distanceUnit}</Text>
-                      <Text style={styles.entryFuelType}>⛽ {entry.fuelType}</Text>
+                      <Text style={styles.entryOdometer}>Distance: {safeNumber(entry.odometerKm).toFixed(0)} {entry.distanceUnit}</Text>
+                      <Text style={styles.entryFuelType}>Fuel Type: {entry.fuelType}</Text>
                       {entry.station && (
-                        <Text style={styles.entryStation}>🏪 {entry.station}</Text>
+                        <Text style={styles.entryStation}>Station: {entry.station}</Text>
                       )}
                     </View>
 
@@ -495,7 +509,10 @@ export default function LogsScreen() {
                       onPress={() => confirmDeleteEntry(entry)}
                       activeOpacity={0.7}
                     >
-                      <Text style={styles.deleteButtonText}>🗑️</Text>
+                      <Image 
+                        source={require('../../assets/delete.png')} 
+                        style={styles.deleteIcon}
+                      />
                     </TouchableOpacity>
                   </Animated.View>
                 ))}
@@ -643,72 +660,67 @@ const styles = StyleSheet.create({
     fontSize: 32,
     fontWeight: '800',
     color: '#F1F5F9',
-    marginBottom: 8,
+    marginBottom: 12,
   },
   subtitle: {
     fontSize: 16,
     color: '#94A3B8',
-    textAlign: 'center',
     lineHeight: 24,
-    maxWidth: 320,
+    fontWeight: '500',
+    marginBottom: 24,
   },
-  // Header Section
-  headerContainer: {
-    paddingHorizontal: 24,
-    paddingTop: 20,
-    paddingBottom: 24,
-    backgroundColor: '#0F172A',
+  header: {
+    paddingHorizontal: 20,
+    paddingTop: 80,
+    paddingBottom: 0,
+  },
+  headerRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
   },
   headerText: {
     marginBottom: 20,
   },
   addButton: {
     backgroundColor: '#4FD1C5',
-    borderRadius: 16,
-    paddingHorizontal: 24,
-    paddingVertical: 14,
-    shadowColor: '#4FD1C5',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.3,
-    shadowRadius: 16,
-    elevation: 8,
-    alignSelf: 'center',
+    borderRadius: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    minWidth: 100,
   },
   addButtonText: {
     color: '#0F172A',
-    fontSize: 16,
-    fontWeight: '700',
+    fontSize: 14,
+    fontWeight: '600',
     textAlign: 'center',
   },
   // Stats Overview
   statsContainer: {
     backgroundColor: '#1E293B',
-    borderRadius: 16,
-    marginHorizontal: 24,
-    marginBottom: 24,
-    padding: 20,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.15,
-    shadowRadius: 12,
-    elevation: 6,
+    borderRadius: 12,
+    marginHorizontal: 20,
+    marginTop: 0,
+    marginBottom: 32,
+    padding: 16,
     borderWidth: 1,
     borderColor: '#334155',
   },
   statsTitle: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#64748B',
+    fontSize: 11,
+    fontWeight: '500',
+    color: '#94A3B8',
     textAlign: 'center',
-    marginBottom: 12,
+    marginBottom: 8,
     letterSpacing: 1,
   },
   statsCount: {
-    fontSize: 48,
-    fontWeight: '900',
+    fontSize: 32,
+    fontWeight: '700',
     color: '#4FD1C5',
     textAlign: 'center',
-    marginBottom: 20,
+    marginBottom: 12,
   },
   statsRow: {
     flexDirection: 'row',
@@ -780,31 +792,42 @@ const styles = StyleSheet.create({
   },
   // Month Groups
   monthGroup: {
-    marginBottom: 32,
-  },
-  monthHeader: {
     marginBottom: 16,
   },
-  monthTitle: {
-    fontSize: 24,
-    fontWeight: '800',
-    color: '#F1F5F9',
-    marginBottom: 8,
-  },
-  monthStats: {
+  monthHeader: {
+    backgroundColor: '#374151',
+    paddingHorizontal: 20,
+    paddingVertical: 15,
+    marginBottom: 16,
+    borderRadius: 12,
     flexDirection: 'row',
+    justifyContent: 'space-between',
     alignItems: 'center',
+  },
+  monthHeaderContent: {
+    flex: 1,
+  },
+  monthTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#F9FAFB',
+    marginBottom: 5,
   },
   monthStatsText: {
     fontSize: 14,
-    color: '#94A3B8',
-    fontWeight: '500',
+    color: '#9CA3AF',
+  },
+  expandIcon: {
+    fontSize: 16,
+    color: '#9CA3AF',
+    marginLeft: 10,
   },
   // Entry Cards
   entryCard: {
     backgroundColor: '#1E293B',
     borderRadius: 16,
     padding: 20,
+    paddingRight: 50, // Add extra padding to prevent delete button overlap
     marginBottom: 16,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
@@ -816,26 +839,7 @@ const styles = StyleSheet.create({
     position: 'relative',
     overflow: 'hidden',
   },
-  latestEntryBadge: {
-    position: 'absolute',
-    top: 16,
-    right: 16,
-    backgroundColor: '#4FD1C5',
-    borderRadius: 8,
-    paddingHorizontal: 12,
-    paddingVertical: 4,
-    shadowColor: '#4FD1C5',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 4,
-  },
-  latestEntryText: {
-    fontSize: 10,
-    fontWeight: '700',
-    color: '#0F172A',
-    letterSpacing: 0.5,
-  },
+
   vehicleInfo: {
     marginBottom: 16,
     paddingRight: 60,
@@ -873,11 +877,12 @@ const styles = StyleSheet.create({
   },
   entryMetrics: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
+    justifyContent: 'space-around',
     alignItems: 'center',
     backgroundColor: 'rgba(15, 23, 42, 0.5)',
     borderRadius: 12,
     padding: 16,
+    marginRight: -25, // Offset for delete button to center the metrics
   },
   metricItem: {
     alignItems: 'center',
@@ -897,19 +902,19 @@ const styles = StyleSheet.create({
   },
   deleteButton: {
     position: 'absolute',
-    top: 16,
-    right: 16,
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: 'rgba(239, 68, 68, 0.2)',
-    justifyContent: 'center',
+    top: 8,
+    right: 8,
+    width: 28,
+    height: 28,
+    borderRadius: 6,
+    backgroundColor: '#DC2626',
     alignItems: 'center',
-    borderWidth: 1,
-    borderColor: 'rgba(239, 68, 68, 0.3)',
+    justifyContent: 'center',
   },
-  deleteButtonText: {
-    fontSize: 18,
+  deleteIcon: {
+    width: 14,
+    height: 14,
+    tintColor: '#FFFFFF',
   },
   // Modal Styles
   modalOverlay: {
