@@ -129,13 +129,21 @@ export default function MapScreen() {
 
     setIsSearching(true);
     try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
+
       const url = `https://nominatim.openstreetmap.org/search?format=json&limit=5&countrycodes=ph&q=${encodeURIComponent(query)}`;
       const response = await fetch(url, { 
+        method: 'GET',
+        signal: controller.signal,
         headers: { 
+          "Accept": "application/json",
           "Accept-Language": "en",
           "User-Agent": "FillTrip Mobile App"
         }
       });
+      
+      clearTimeout(timeoutId);
       
       if (!response.ok) {
         console.error(`Search API error: ${response.status} ${response.statusText}`);
@@ -178,8 +186,8 @@ export default function MapScreen() {
         setEndSearchResults([]);
       }
       
-      // Only show alert for network/timeout errors, not for empty queries
-      if (query.length >= 3) {
+      // Only show alert for actual network/timeout errors, not for successful searches
+      if (query.length >= 3 && error instanceof Error && (error.name === 'AbortError' || error.message.includes('network') || error.message.includes('fetch'))) {
         setTimeout(() => {
           Alert.alert(
             'Search Error',
@@ -422,8 +430,11 @@ export default function MapScreen() {
           {/* Hamburger Menu Button */}
           <TouchableOpacity
             style={[styles.controlButton, styles.hamburgerButton]}
-            onPress={toggleMenu}
-            activeOpacity={0.8}
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+              toggleMenu();
+            }}
+            activeOpacity={0.7}
           >
             <View style={styles.hamburgerIcon}>
               <View style={styles.hamburgerLine} />
@@ -437,8 +448,11 @@ export default function MapScreen() {
             {/* Dark Mode Toggle */}
             <TouchableOpacity
               style={[styles.controlButton, styles.darkModeButton]}
-              onPress={toggleDarkMode}
-              activeOpacity={0.8}
+              onPress={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                toggleDarkMode();
+              }}
+              activeOpacity={0.7}
             >
               <Image 
                 source={isDarkMode ? require('../../assets/light-mode.png') : require('../../assets/dark-mode.png')}
@@ -450,8 +464,11 @@ export default function MapScreen() {
             {/* Saved Places Button */}
             <TouchableOpacity
               style={[styles.controlButton, styles.savedPlacesButton]}
-              onPress={toggleSavedPlaces}
-              activeOpacity={0.8}
+              onPress={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                toggleSavedPlaces();
+              }}
+              activeOpacity={0.7}
             >
               <Image 
                 source={require('../../assets/saved-places.png')}
@@ -475,55 +492,55 @@ export default function MapScreen() {
           </View>
         </View>
 
-        {/* Route Info and Calculator Container */}
+        {/* Unified Route Info and Calculator Container */}
         {routeInfo && (
           <Animated.View
-            entering={FadeInDown.duration(300)}
-            exiting={FadeOutUp.duration(200)}
+            entering={FadeInDown.duration(500).springify()}
+            exiting={FadeOutUp.duration(300)}
             style={styles.bottomOverlayContainer}
           >
-            {/* Route Info Display */}
-            <View style={styles.routeInfoContainer}>
-              <View style={styles.routeInfoHeader}>
-                <Text style={styles.routeInfoTitle}>Route Overview</Text>
-              </View>
-              <View style={styles.routeInfoDetails}>
-                <View style={styles.routeInfoMetric}>
-                  <Text style={styles.routeMetricValue}>{routeInfo.distance.toFixed(1)}</Text>
-                  <Text style={styles.routeMetricLabel}>km</Text>
+            {/* Unified Route Information Panel */}
+            <View style={styles.unifiedRoutePanel}>
+              {/* Route Metrics Header */}
+              <View style={styles.routeMetricsSection}>
+                <Text style={styles.routePanelTitle}>Route Overview</Text>
+                <View style={styles.routeMetricsRow}>
+                  <View style={styles.routeMetricItem}>
+                    <Text style={styles.routeMetricLargeValue}>{routeInfo.distance.toFixed(1)}</Text>
+                    <Text style={styles.routeMetricLargeLabel}>km</Text>
+                  </View>
+                  <View style={styles.routeMetricsDivider} />
+                  <View style={styles.routeMetricItem}>
+                    <Text style={styles.routeMetricLargeValue}>{routeInfo.duration}</Text>
+                    <Text style={styles.routeMetricLargeLabel}>min</Text>
+                  </View>
                 </View>
-                <View style={styles.routeInfoSeparator} />
-                <View style={styles.routeInfoMetric}>
-                  <Text style={styles.routeMetricValue}>{routeInfo.duration}</Text>
-                  <Text style={styles.routeMetricLabel}>min</Text>
-                </View>
               </View>
+              
+              {/* Calculator Action Section */}
+              <TouchableOpacity
+                style={styles.unifiedCalculatorSection}
+                onPress={() => {
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                  const startName = startLocation?.name || 'Start Location';
+                  const endName = endLocation?.name || 'End Location';
+                  router.push({
+                    pathname: '/main/calculator',
+                    params: {
+                      distanceKm: routeInfo.distance.toFixed(2),
+                      startName,
+                      endName,
+                    },
+                  });
+                }}
+                activeOpacity={0.7}
+              >
+                <Text style={styles.unifiedCalculatorTitle}>Fuel Calculator</Text>
+                <Text style={styles.unifiedCalculatorSubtitle}>
+                  Calculate costs for {routeInfo.distance.toFixed(1)} km trip
+                </Text>
+              </TouchableOpacity>
             </View>
-
-            {/* Fuel Calculator Button */}
-            <TouchableOpacity
-              style={styles.calculatorButton}
-              onPress={() => {
-                const startName = startLocation?.name || 'Start Location';
-                const endName = endLocation?.name || 'End Location';
-                router.push({
-                  pathname: '/main/calculator',
-                  params: {
-                    distanceKm: routeInfo.distance.toFixed(2),
-                    startName,
-                    endName,
-                  },
-                });
-              }}
-              activeOpacity={0.8}
-            >
-              <Text style={styles.calculatorButtonText}>
-                Calculator
-              </Text>
-              <Text style={styles.calculatorButtonDistance}>
-                {routeInfo.distance.toFixed(1)} km
-              </Text>
-            </TouchableOpacity>
           </Animated.View>
         )}
 
@@ -536,8 +553,8 @@ export default function MapScreen() {
         >
           <View style={styles.modalOverlay}>
             <Animated.View
-              entering={SlideInLeft.duration(300)}
-              exiting={SlideOutLeft.duration(200)}
+              entering={SlideInLeft.duration(400).springify()}
+              exiting={SlideOutLeft.duration(300)}
               style={styles.menuPanel}
             >
               {/* Header */}
@@ -576,8 +593,8 @@ export default function MapScreen() {
                     </Text>
                     
                     {startSearchResults.length > 0 && (
-                      <View style={styles.searchResults}>
-                        {startSearchResults.map((result: any, index: number) => (
+                      <View style={styles.searchResultsOverlay}>
+                        {startSearchResults.slice(0, 3).map((result: any, index: number) => (
                           <TouchableOpacity
                             key={index}
                             style={styles.searchResultItem}
@@ -610,8 +627,8 @@ export default function MapScreen() {
                     </Text>
                     
                     {endSearchResults.length > 0 && (
-                      <View style={styles.searchResults}>
-                        {endSearchResults.map((result: any, index: number) => (
+                      <View style={styles.searchResultsOverlay}>
+                        {endSearchResults.slice(0, 3).map((result: any, index: number) => (
                           <TouchableOpacity
                             key={index}
                             style={styles.searchResultItem}
@@ -703,8 +720,8 @@ export default function MapScreen() {
         >
           <View style={styles.modalOverlay}>
             <Animated.View
-              entering={FadeInDown.duration(300)}
-              exiting={FadeOutUp.duration(200)}
+              entering={FadeInDown.duration(400).springify()}
+              exiting={FadeOutUp.duration(300)}
               style={styles.savedPlacesPanel}
             >
               <Text style={styles.savedPlacesTitle}>Saved Places</Text>
@@ -862,8 +879,7 @@ const styles = StyleSheet.create({
     width: 48,
     height: 48,
     borderRadius: 8,
-    backgroundColor: 'rgba(30, 41, 59, 0.9)',
-    backdropFilter: 'blur(10px)',
+    backgroundColor: '#1E293B',
     justifyContent: 'center',
     alignItems: 'center',
     shadowColor: '#000',
@@ -871,6 +887,8 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.25,
     shadowRadius: 3.84,
     elevation: 5,
+    borderWidth: 1,
+    borderColor: '#334155',
   },
   hamburgerButton: {},
   darkModeButton: {
@@ -928,7 +946,7 @@ const styles = StyleSheet.create({
     zIndex: 10,
   },
   routeInfoContainer: {
-    backgroundColor: 'rgba(30, 41, 59, 0.95)',
+    backgroundColor: '#1E293B',
     borderRadius: 16,
     padding: 16,
     shadowColor: '#000',
@@ -1005,7 +1023,7 @@ const styles = StyleSheet.create({
     bottom: 100,
     left: 20,
     right: 20,
-    backgroundColor: 'rgba(30, 41, 59, 0.95)',
+    backgroundColor: '#1E293B',
     borderRadius: 12,
     padding: 16,
     flexDirection: 'row',
@@ -1029,7 +1047,7 @@ const styles = StyleSheet.create({
   menuPanel: {
     width: screenWidth * 0.85,
     height: screenHeight,
-    backgroundColor: '#1E293B',
+    backgroundColor: '#0F172A',
     paddingTop: 60,
   },
   menuHeader: {
@@ -1055,7 +1073,8 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
   locationInput: {
-    marginBottom: 16,
+    marginBottom: 20,
+    position: 'relative',
   },
   locationLabel: {
     fontSize: 16,
@@ -1065,8 +1084,9 @@ const styles = StyleSheet.create({
   },
   modernSearchInput: {
     backgroundColor: '#334155',
-    borderRadius: 12,
-    padding: 14,
+    borderRadius: 8,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
     color: 'white',
     fontSize: 16,
     borderWidth: 1,
@@ -1086,14 +1106,32 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#64748B',
   },
+  searchResultsOverlay: {
+    position: 'absolute',
+    top: '100%',
+    left: 0,
+    right: 0,
+    backgroundColor: '#1E293B',
+    borderRadius: 12,
+    marginTop: 4,
+    borderWidth: 1,
+    borderColor: '#475569',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 10,
+    zIndex: 1000,
+  },
   searchResultItem: {
-    padding: 12,
+    padding: 14,
     borderBottomWidth: 1,
-    borderBottomColor: '#64748B',
+    borderBottomColor: '#475569',
   },
   searchResultText: {
-    color: '#E2E8F0',
+    color: '#F1F5F9',
     fontSize: 14,
+    fontWeight: '500',
   },
   // Route Info Card in Menu
   routeInfoCard: {
@@ -1182,8 +1220,8 @@ const styles = StyleSheet.create({
     borderColor: '#475569',
   },
   mapModeButtonActive: {
-    backgroundColor: '#4FD1C5',
-    borderColor: '#4FD1C5',
+    backgroundColor: '#334155',
+    borderColor: '#475569',
   },
   mapModeText: {
     color: '#E2E8F0',
@@ -1191,17 +1229,19 @@ const styles = StyleSheet.create({
     fontWeight: '500',
   },
   mapModeTextActive: {
-    color: '#1E293B',
+    color: '#E2E8F0',
   },
   directionsButton: {
-    backgroundColor: '#4FD1C5',
+    backgroundColor: '#334155',
     borderRadius: 8,
     padding: 12,
     alignItems: 'center',
     marginBottom: 24,
+    borderWidth: 1,
+    borderColor: '#475569',
   },
   directionsButtonText: {
-    color: '#1E293B',
+    color: '#E2E8F0',
     fontSize: 14,
     fontWeight: '600',
   },
@@ -1419,14 +1459,16 @@ const styles = StyleSheet.create({
     flex: 1,
     padding: 12,
     borderRadius: 8,
-    backgroundColor: '#4FD1C5',
+    backgroundColor: '#334155',
     alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#475569',
   },
   disabledButton: {
     backgroundColor: '#64748B',
   },
   saveButtonText: {
-    color: '#1E293B',
+    color: '#E2E8F0',
     fontSize: 14,
     fontWeight: '600',
   },
@@ -1472,13 +1514,15 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
     paddingHorizontal: 12,
     borderRadius: 6,
-    backgroundColor: '#4FD1C5',
+    backgroundColor: '#334155',
+    borderWidth: 1,
+    borderColor: '#475569',
   },
   deleteButton: {
     backgroundColor: '#DC2626',
   },
   useButtonText: {
-    color: '#1E293B',
+    color: '#F1F5F9',
     fontSize: 10,
     fontWeight: '600',
   },
@@ -1564,5 +1608,70 @@ const styles = StyleSheet.create({
     color: '#E2E8F0',
     fontSize: 14,
     lineHeight: 20,
+  },
+  // Unified Route Panel Styles
+  unifiedRoutePanel: {
+    backgroundColor: '#1E293B',
+    borderRadius: 16,
+    padding: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 8,
+  },
+  routeMetricsSection: {
+    marginBottom: 16,
+  },
+  routePanelTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#94A3B8',
+    textAlign: 'center',
+    marginBottom: 12,
+  },
+  routeMetricsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  routeMetricItem: {
+    alignItems: 'center',
+    flex: 1,
+  },
+  routeMetricLargeValue: {
+    fontSize: 28,
+    fontWeight: 'bold',
+    color: '#4FD1C5',
+  },
+  routeMetricLargeLabel: {
+    fontSize: 14,
+    color: '#94A3B8',
+    marginTop: 2,
+  },
+  routeMetricsDivider: {
+    width: 1,
+    height: 40,
+    backgroundColor: '#475569',
+    marginHorizontal: 20,
+  },
+  unifiedCalculatorSection: {
+    backgroundColor: '#334155',
+    borderRadius: 12,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: '#475569',
+  },
+  unifiedCalculatorTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#4FD1C5',
+    textAlign: 'center',
+    marginBottom: 4,
+  },
+  unifiedCalculatorSubtitle: {
+    fontSize: 14,
+    color: '#94A3B8',
+    textAlign: 'center',
   },
 });

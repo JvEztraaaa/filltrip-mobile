@@ -170,6 +170,8 @@ export default function TripsScreen() {
 
   const deleteTrip = async (id: number) => {
     try {
+      console.log('Attempting to delete trip with ID:', id);
+      
       const formData = new FormData();
       formData.append('id', id.toString());
 
@@ -179,17 +181,20 @@ export default function TripsScreen() {
         body: formData,
       });
 
+      console.log('Delete response status:', response.status);
+
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
 
       const data = await response.json();
+      console.log('Delete response data:', data);
       
       if (data.success && data.deleted) {
         await loadTrips();
         Alert.alert('Success', 'Trip deleted successfully!');
       } else {
-        Alert.alert('Error', 'Failed to delete trip');
+        Alert.alert('Error', data.error || 'Failed to delete trip');
       }
     } catch (error) {
       console.error('Error deleting trip:', error);
@@ -444,7 +449,7 @@ const styles = StyleSheet.create({
   },
   header: {
     paddingHorizontal: 20,
-    paddingTop: 20,
+    paddingTop: 60,
     paddingBottom: 16,
   },
   headerContainer: {
@@ -452,7 +457,7 @@ const styles = StyleSheet.create({
     alignItems: 'flex-start',
     justifyContent: 'space-between',
     paddingHorizontal: 20,
-    paddingTop: 20,
+    paddingTop: 60,
     paddingBottom: 16,
   },
   headerText: {
@@ -524,6 +529,7 @@ const styles = StyleSheet.create({
   scrollView: {
     flex: 1,
     paddingHorizontal: 20,
+    paddingTop: 40,
   },
   loadingContainer: {
     paddingVertical: 60,

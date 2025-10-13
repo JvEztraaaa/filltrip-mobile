@@ -1,18 +1,19 @@
+import * as Haptics from 'expo-haptics';
 import { useLocalSearchParams } from 'expo-router';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
-    Alert,
-    Animated,
-    Dimensions,
-    Easing,
-    Modal,
-    SafeAreaView,
-    ScrollView,
-    StyleSheet,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View
+  Alert,
+  Animated,
+  Dimensions,
+  Easing,
+  Modal,
+  SafeAreaView,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View
 } from 'react-native';
 import { useAuth } from '../../context/AuthContext';
 import { API_BASE } from '../../src/config/api';
@@ -323,29 +324,32 @@ export default function CalculatorScreen() {
             </View>
             
             <View style={styles.vehicleSearchContainer}>
-              <TextInput
-                style={[styles.input, selectedVehicle && styles.inputWithVehicle]}
-                placeholder="Search model (e.g. Toyota Vios, Click 125)"
-                placeholderTextColor="#94A3B8"
-                value={vehicleQuery}
-                onChangeText={setVehicleQuery}
-                onFocus={() => setShowVehicleDropdown(true)}
-              />
-              
-              {selectedVehicle && (
-                <View style={styles.selectedVehicleDisplay}>
-                  <Text style={styles.selectedVehicleText}>
-                    {selectedVehicle.typicalYears.split('-')[0]} {selectedVehicle.make} {selectedVehicle.model}
-                  </Text>
-                  <Text style={styles.selectedVehicleEfficiency}>
-                    Auto-filled: {selectedVehicle.kmPerLiterAvg} km/L
-                  </Text>
-                </View>
-              )}
+              <View style={styles.searchInputRow}>
+                <TextInput
+                  style={[styles.input, styles.searchInput, selectedVehicle && styles.inputWithVehicle]}
+                  placeholder="Search vehicle model"
+                  placeholderTextColor="#94A3B8"
+                  value={vehicleQuery}
+                  onChangeText={setVehicleQuery}
+                  onFocus={() => setShowVehicleDropdown(true)}
+                />
+                <TouchableOpacity 
+                  style={styles.clearButtonInline} 
+                  onPress={() => {
+                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                    setVehicleQuery('');
+                    setSelectedVehicle(null);
+                    setEfficiency('');
+                  }}
+                  activeOpacity={0.7}
+                >
+                  <Text style={styles.clearButtonText}>Clear</Text>
+                </TouchableOpacity>
+              </View>
               
               {showVehicleDropdown && vehicleOptions.length > 0 && (
-                <View style={styles.dropdown}>
-                  {vehicleOptions.map((vehicle) => (
+                <View style={styles.vehicleDropdownOverlay}>
+                  {vehicleOptions.slice(0, 3).map((vehicle) => (
                     <TouchableOpacity
                       key={vehicle.id}
                       style={styles.dropdownItem}
@@ -362,17 +366,6 @@ export default function CalculatorScreen() {
                 </View>
               )}
             </View>
-            
-            <TouchableOpacity 
-              style={styles.clearButton} 
-              onPress={() => {
-                setVehicleQuery('');
-                setSelectedVehicle(null);
-                setEfficiency('');
-              }}
-            >
-              <Text style={styles.clearButtonText}>Clear</Text>
-            </TouchableOpacity>
           </View>
           
           {/* Trip Details Section */}
@@ -472,8 +465,14 @@ export default function CalculatorScreen() {
           <View style={styles.actionSection}>
             <TouchableOpacity
               style={[styles.calculateButton, !canCalculate && styles.calculateButtonDisabled]}
-              onPress={performCalculation}
+              onPress={() => {
+                if (canCalculate) {
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                  performCalculation();
+                }
+              }}
               disabled={!canCalculate}
+              activeOpacity={0.7}
             >
               <Text style={[styles.calculateButtonText, !canCalculate && styles.calculateButtonTextDisabled]}>
                 Calculate Fuel Cost
@@ -681,7 +680,7 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     paddingHorizontal: 24,
-    paddingTop: 24,
+    paddingTop: 80,
     paddingBottom: 120,
   },
   header: {
@@ -689,17 +688,17 @@ const styles = StyleSheet.create({
     paddingTop: 10,
   },
   routeBadge: {
-    backgroundColor: 'rgba(30, 41, 59, 0.8)',
+    backgroundColor: '#1E293B',
     borderRadius: 16,
     padding: 20,
     marginTop: 20,
     borderWidth: 1,
-    borderColor: 'rgba(79, 209, 197, 0.3)',
-    shadowColor: '#4FD1C5',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.2,
-    shadowRadius: 16,
-    elevation: 8,
+    borderColor: '#334155',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 12,
+    elevation: 6,
   },
   routeBadgeText: {
     color: '#4FD1C5',
@@ -727,17 +726,17 @@ const styles = StyleSheet.create({
     fontWeight: '500',
   },
   section: {
-    backgroundColor: 'rgba(30, 41, 59, 0.6)',
-    borderRadius: 20,
-    padding: 24,
+    backgroundColor: '#1E293B',
+    borderRadius: 16,
+    padding: 20,
     marginBottom: 24,
     borderWidth: 1,
-    borderColor: 'rgba(79, 209, 197, 0.2)',
+    borderColor: '#334155',
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.2,
-    shadowRadius: 16,
-    elevation: 8,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 12,
+    elevation: 6,
   },
   sectionHeader: {
     marginBottom: 20,
@@ -758,23 +757,33 @@ const styles = StyleSheet.create({
     position: 'relative',
     marginBottom: 16,
   },
+  searchInputRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  searchInput: {
+    flex: 1,
+  },
   input: {
-    backgroundColor: 'rgba(15, 23, 42, 0.8)',
-    borderWidth: 2,
-    borderColor: 'rgba(79, 209, 197, 0.3)',
-    borderRadius: 12,
-    padding: 16,
+    backgroundColor: '#1E293B',
+    borderWidth: 1,
+    borderColor: '#475569',
+    borderRadius: 8,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
     color: '#F1F5F9',
     fontSize: 16,
     fontWeight: '500',
   },
   inputWithVehicle: {
     borderColor: '#4FD1C5',
-    backgroundColor: 'rgba(79, 209, 197, 0.1)',
+    backgroundColor: '#1E293B',
+    borderWidth: 2,
     shadowColor: '#4FD1C5',
-    shadowOffset: { width: 0, height: 4 },
+    shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.2,
-    shadowRadius: 8,
+    shadowRadius: 4,
     elevation: 4,
   },
   inputFlex: {
@@ -797,15 +806,15 @@ const styles = StyleSheet.create({
   },
   unitButton: {
     backgroundColor: '#4FD1C5',
-    borderRadius: 12,
-    paddingHorizontal: 20,
-    paddingVertical: 16,
+    borderRadius: 8,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
     minWidth: 80,
     alignItems: 'center',
-    shadowColor: '#4FD1C5',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
     elevation: 4,
   },
   unitButtonText: {
@@ -845,6 +854,23 @@ const styles = StyleSheet.create({
     maxHeight: 200,
     zIndex: 1000,
   },
+  vehicleDropdownOverlay: {
+    position: 'absolute',
+    top: '100%',
+    left: 0,
+    right: 0,
+    backgroundColor: '#1E293B',
+    borderWidth: 1,
+    borderColor: '#475569',
+    borderRadius: 12,
+    marginTop: 4,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 15,
+    zIndex: 9999,
+  },
   dropdownItem: {
     padding: 12,
     borderBottomWidth: 1,
@@ -866,6 +892,15 @@ const styles = StyleSheet.create({
     borderRadius: 4,
     paddingHorizontal: 12,
     paddingVertical: 6,
+  },
+  clearButtonInline: {
+    backgroundColor: '#DC2626',
+    borderRadius: 8,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    minWidth: 70,
   },
   clearButtonText: {
     color: '#FFFFFF',
@@ -900,14 +935,15 @@ const styles = StyleSheet.create({
   calculateButton: {
     backgroundColor: '#4FD1C5',
     borderRadius: 12,
-    padding: 18,
+    paddingVertical: 16,
+    paddingHorizontal: 24,
     alignItems: 'center',
     marginBottom: 12,
-    shadowColor: '#4FD1C5',
+    shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
     shadowRadius: 8,
-    elevation: 8,
+    elevation: 6,
   },
   calculateButtonDisabled: {
     backgroundColor: '#475569',
