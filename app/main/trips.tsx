@@ -616,7 +616,7 @@ const styles = StyleSheet.create({
   tripDate: {
     fontSize: 14,
     color: '#94A3B8',
-    backgroundColor: '#334155',
+    backgroundColor: 'rgba(51, 65, 85, 0.5)',
     borderRadius: 6,
     paddingHorizontal: 8,
     paddingVertical: 4,
@@ -624,7 +624,7 @@ const styles = StyleSheet.create({
   tripVehicle: {
     fontSize: 14,
     color: '#94A3B8',
-    backgroundColor: '#334155',
+    backgroundColor: 'rgba(51, 65, 85, 0.5)',
     borderRadius: 6,
     paddingHorizontal: 8,
     paddingVertical: 4,
@@ -632,7 +632,7 @@ const styles = StyleSheet.create({
   tripFuel: {
     fontSize: 14,
     color: '#94A3B8',
-    backgroundColor: '#334155',
+    backgroundColor: 'rgba(51, 65, 85, 0.5)',
     borderRadius: 6,
     paddingHorizontal: 8,
     paddingVertical: 4,
@@ -646,7 +646,7 @@ const styles = StyleSheet.create({
   metricItem: {
     flex: 1,
     alignItems: 'center',
-    backgroundColor: '#334155',
+    backgroundColor: 'rgba(51, 65, 85, 0.5)',
     borderRadius: 8,
     paddingVertical: 12,
     paddingHorizontal: 8,

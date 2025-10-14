@@ -860,13 +860,14 @@ const styles = StyleSheet.create({
   },
   vehicleDropdownOverlay: {
     position: 'absolute',
-    top: 280, // Position below the search input (adjusted for better positioning)
+    top: 360, // Position below the search input - increased to avoid covering the field
     left: 20,
-    right: 20,
+    right: 110, // Adjusted to match search field width more precisely
     backgroundColor: '#1E293B',
     borderWidth: 1,
     borderColor: '#475569',
     borderRadius: 12,
+    maxHeight: 200,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,

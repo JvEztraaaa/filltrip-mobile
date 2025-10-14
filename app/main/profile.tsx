@@ -1,15 +1,15 @@
 import React, { useContext, useState } from 'react';
 import {
-    ActivityIndicator,
-    Alert,
-    Image,
-    SafeAreaView,
-    ScrollView,
-    StyleSheet,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View
+  ActivityIndicator,
+  Alert,
+  Image,
+  SafeAreaView,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View
 } from 'react-native';
 import { AuthContext } from '../../context/AuthContext';
 import AnimatedPageContainer from '../components/AnimatedPageContainer';
@@ -39,7 +39,7 @@ export default function ProfileScreen() {
   if (!context) {
     throw new Error('ProfileScreen must be used within an AuthProvider');
   }
-  const { currentUser, logout } = context;
+  const { currentUser, logout, updateProfile, updatePassword } = context;
   const [currentView, setCurrentView] = useState<ViewType>('menu');
   const [activeTab, setActiveTab] = useState<TabType>('profile');
   const [saving, setSaving] = useState(false);
@@ -83,27 +83,32 @@ export default function ProfileScreen() {
 
     setSaving(true);
     try {
-      const formData = new FormData();
-      formData.append('firstName', profileForm.firstName);
-      formData.append('lastName', profileForm.lastName);
-      formData.append('username', profileForm.username);
-      formData.append('email', profileForm.email);
-
-      const response = await fetch('https://filltrip.com/filltrip-db/profile_update.php', {
-        method: 'POST',
-        body: formData,
-        credentials: 'include',
+      const result = await updateProfile({
+        firstName: profileForm.firstName,
+        lastName: profileForm.lastName,
+        username: profileForm.username,
+        email: profileForm.email,
       });
 
-      const data = await response.json();
-      
-      if (data.success) {
+      if (result.success) {
         showMessage('Profile updated successfully!');
+        // Update local form state with the updated user data
+        if (result.user) {
+          setProfileForm({
+            firstName: result.user.firstName,
+            lastName: result.user.lastName,
+            username: result.user.username,
+            email: result.user.email,
+          });
+        }
       } else {
-        showMessage(data.message || 'Failed to update profile', true);
+        const errorMsg = typeof result.error === 'string' 
+          ? result.error 
+          : result.error?.message || 'Failed to update profile';
+        showMessage(errorMsg, true);
       }
-    } catch (error) {
-      showMessage('Network error occurred', true);
+    } catch (error: any) {
+      showMessage(error?.message || 'Network error occurred', true);
     } finally {
       setSaving(false);
     }
@@ -127,19 +132,12 @@ export default function ProfileScreen() {
 
     setSaving(true);
     try {
-      const formData = new FormData();
-      formData.append('currentPassword', passwordForm.currentPassword);
-      formData.append('newPassword', passwordForm.newPassword);
-
-      const response = await fetch('https://filltrip.com/filltrip-db/password_update.php', {
-        method: 'POST',
-        body: formData,
-        credentials: 'include',
+      const result = await updatePassword({
+        currentPassword: passwordForm.currentPassword,
+        newPassword: passwordForm.newPassword,
       });
 
-      const data = await response.json();
-      
-      if (data.success) {
+      if (result.success) {
         showMessage('Password updated successfully!');
         setPasswordForm({
           currentPassword: '',
@@ -147,10 +145,13 @@ export default function ProfileScreen() {
           confirmPassword: ''
         });
       } else {
-        showMessage(data.message || 'Failed to update password', true);
+        const errorMsg = typeof result.error === 'string' 
+          ? result.error 
+          : result.error?.message || 'Failed to update password';
+        showMessage(errorMsg, true);
       }
-    } catch (error) {
-      showMessage('Network error occurred', true);
+    } catch (error: any) {
+      showMessage(error?.message || 'Network error occurred', true);
     } finally {
       setSaving(false);
     }
@@ -358,7 +359,7 @@ export default function ProfileScreen() {
 
   const renderAccountSettings = () => (
     <View>
-      {/* Header with Back Button */}
+      {/* Header with Back Button Above Title */}
       <View style={styles.header}>
         <TouchableOpacity
           style={styles.backButton}
@@ -368,7 +369,6 @@ export default function ProfileScreen() {
           <Text style={styles.backButtonText}>‹ Back</Text>
         </TouchableOpacity>
         <Text style={styles.title}>Account Settings</Text>
-        <View style={styles.headerSpacer} />
       </View>
 
       {/* Tabs */}
@@ -429,11 +429,8 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
     paddingHorizontal: 20,
-    paddingTop: 80,
+    paddingTop: 60,
     paddingBottom: 16,
   },
   title: {
@@ -487,17 +484,18 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(13, 148, 136, 0.5)',
   },
   errorContainer: {
+    marginHorizontal: 20,
+    marginBottom: 16,
+    padding: 12,
+    borderRadius: 8,
     backgroundColor: 'rgba(127, 29, 29, 0.3)',
+    borderWidth: 1,
     borderColor: 'rgba(220, 38, 38, 0.5)',
   },
-  messageText: {
-    fontSize: 14,
-  },
-  successText: {
-    color: '#A7F3D0',
-  },
   errorText: {
+    fontSize: 14,
     color: '#FCA5A5',
+    textAlign: 'center',
   },
   tabContent: {
     paddingHorizontal: 20,
@@ -597,16 +595,14 @@ const styles = StyleSheet.create({
     color: '#DC2626',
   },
   backButton: {
-    paddingHorizontal: 12,
     paddingVertical: 8,
+    marginBottom: 8,
+    alignSelf: 'flex-start',
   },
   backButtonText: {
     fontSize: 16,
     color: '#4FD1C5',
-    fontWeight: '500',
-  },
-  headerSpacer: {
-    width: 50,
+    fontWeight: '600',
   },
   noticeContainer: {
     marginHorizontal: 20,
